@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap');
+
+:root {
+  --bg: #0c0c0f;
+  --surface: #13131a;
+  --border: #1e1e2e;
+  --accent: #7c6af7;
+  --accent-dim: #7c6af720;
+  --text: #e8e8f0;
+  --muted: #55556a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+#root { height: 100dvh; display: flex; flex-direction: column; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
