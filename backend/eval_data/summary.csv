@@ -1,0 +1,5 @@
+Metric,Average Score,Pass Rate (%)
+FaithfulnessMetric,0.762,60.0
+AnswerRelevancyMetric,0.865,75.0
+ContextualPrecisionMetric,1.0,100.0
+ContextualRecallMetric,0.575,50.0

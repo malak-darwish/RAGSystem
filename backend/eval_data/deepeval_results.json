@@ -1,0 +1,137 @@
+[
+  {
+    "question": "What is the purpose of CIS Control 3: Data Protection?",
+    "ground_truth": "Develop processes and technical controls to identify, classify, securely handle, retain, and dispose of data.",
+    "answer": "Based on the context provided, the purpose of CIS Control 3: Data Protection is to establish and maintain a data management process that addresses data sensitivity, data owner, handling of data, data retention limits, and disposal requirements, based on sensitivity and retention standards for the enterprise. This is explicitly stated in section 3.1 of the context, which describes CIS Control 3 as \"Establish and maintain a data management process. In the process, address data sensitivity, data owner, handling of data, data retention limits, and disposal requirements, based on sensitivity and retention standards for the enterprise.\" The context also indicates that this control is designed to help prevent data loss, compromise, and the \"serious and often reportable business impact\" that results from poorly understood data management rules and user error.",
+    "metrics": {
+      "FaithfulnessMetric": {
+        "status": "success",
+        "score": 0.875,
+        "reason": "The score is 0.88 because the actual output seems to be mostly accurate, but one of the provided section numbers in the claim does not match any section number in the retrieval context, indicating a minor discrepancy which does not significantly affect the overall faithfulness."
+      },
+      "AnswerRelevancyMetric": {
+        "status": "success",
+        "score": 0.8333333333333334,
+        "reason": "The score is 0.83 because the output contained statements that did not address the purpose of CIS Control 3: Data Protection, but still provided relevant information that prevented the score from being lower."
+      },
+      "ContextualPrecisionMetric": {
+        "status": "failed",
+        "score": null,
+        "reason": "Evaluation LLM outputted an invalid JSON. Please use a better evaluation model."
+      },
+      "ContextualRecallMetric": {
+        "status": "success",
+        "score": 0.3333333333333333,
+        "reason": "The score is 0.33 because the sentence 'Develop processes and technical controls to identify, classify, securely handle, retain, and dispose of data.' is attributed to the 1st node in retrieval context, but not attributed to the 2nd and 3rd nodes, indicating a partial match."
+      }
+    }
+  },
+  {
+    "question": "Why is maintaining a complete software inventory important according to CIS Control 2?",
+    "ground_truth": "A complete software inventory is critical for preventing attacks because attackers continuously scan for vulnerable software versions. Without a complete inventory, an enterprise cannot determine whether it has vulnerable software or potential licensing violations.",
+    "answer": "According to CIS Control 2, maintaining a complete software inventory is important because it serves as a critical foundation for preventing attacks. Specifically, a complete software inventory allows enterprises to identify vulnerable software, prevent potential licensing violations, and implement temporary mitigations for known attacks until patches are available. Without this inventory, enterprises cannot determine if they have vulnerable software or potential licensing issues, which makes it essential for securing the enterprise infrastructure.",
+    "metrics": {
+      "FaithfulnessMetric": {
+        "status": "success",
+        "score": 0.8333333333333334,
+        "reason": "The score is 0.83 because the actual output is partially accurate, as it acknowledges the limitations of a software inventory in identifying vulnerabilities, but does not fully align with the context, which emphasizes the inventory's role in prevention and mitigation."
+      },
+      "AnswerRelevancyMetric": {
+        "status": "failed",
+        "score": null,
+        "reason": "Evaluation LLM outputted an invalid JSON. Please use a better evaluation model."
+      },
+      "ContextualPrecisionMetric": {
+        "status": "success",
+        "score": 1.0,
+        "reason": "The score is 1.00 because all the relevant 'nodes' (the 1st, 2nd, and 3rd retrieval contexts) in the retrieval contexts are ranked higher than the irrelevant 'nodes' (the 4th, 5th, and 6th retrieval contexts), which explains why the importance of maintaining a complete software inventory is clearly addressed first."
+      },
+      "ContextualRecallMetric": {
+        "status": "success",
+        "score": 0.7666666666666667,
+        "reason": "The score is 0.77 because sentences 1-10 in the expected output are attributed to node 1 in retrieval context, which contains information about the importance of a complete software inventory for preventing attacks. However, sentences 11-15 in the expected output are not attributed to any nodes in retrieval context, as indicated by the unsupportive reasons. Sentence 16 is attributed to node 2, and sentences 17-21 are attributed to node 3, which discuss allowlisting, commercial software inventory tools, and secure configuration of enterprise assets and software."
+      }
+    }
+  },
+  {
+    "question": "What does Safeguard 1.2 Address Unauthorized Assets require?",
+    "ground_truth": "Ensure that a process exists to address unauthorized assets on a weekly basis. The enterprise may choose to remove the asset from the network, deny the asset from connecting remotely to the network, or quarantine the asset.",
+    "answer": "Safeguard 1.2 Address Unauthorized Assets requires that a process exists to address unauthorized assets on a weekly basis, where the enterprise may choose to remove the asset from the network, deny the asset from connecting remotely to the network, or quarantine the asset.",
+    "metrics": {
+      "FaithfulnessMetric": {
+        "status": "success",
+        "score": 1.0,
+        "reason": "The score is 1.00 because there are no discrepancies between the actual output and the retrieval context, indicating perfect alignment and faithfulness."
+      },
+      "AnswerRelevancyMetric": {
+        "status": "success",
+        "score": 1.0,
+        "reason": "The score is 1.00 because the output directly and accurately addresses the question, providing a clear and relevant response without any unnecessary or irrelevant information."
+      },
+      "ContextualPrecisionMetric": {
+        "status": "success",
+        "score": 1.0,
+        "reason": "The score is 1.00 because the first document is clearly relevant, the second document is an irrelevant duplicate, and the third document is correctly ranked lower as it discusses unrelated topics, like software inventory and control, which is not related to addressing unauthorized assets."
+      },
+      "ContextualRecallMetric": {
+        "status": "success",
+        "score": 1.0,
+        "reason": "The score is 1.00 because node(s) in retrieval context perfectly match the expected process for addressing unauthorized assets, as all sentences in the expected output can be directly attributed to the repeated mention of the same process on the 1st node, demonstrating a clear and consistent recall."
+      }
+    }
+  },
+  {
+    "question": "What is the maximum period of inactivity before automatic session locking must occur according to Safeguard 4.3?",
+    "ground_truth": "Automatic session locking must occur after a defined period of inactivity that does not exceed 15 minutes for general purpose operating systems.",
+    "answer": "The context specifies that Safeguard 4.3 is \"Configure automatic session locking on enterprise assets.\" According to the description provided in the context, for general purpose operating systems, the period of inactivity before automatic session locking must not exceed 15 minutes. For mobile end-user devices, the period must not exceed 2 minutes.\n\nThus, the maximum period of inactivity before automatic session locking must occur is 15 minutes for general purpose operating systems and 2 minutes for mobile end-user devices.\n\n\\boxed{15\\text{ minutes for general purpose operating systems}, 2\\text{ minutes for mobile end-user devices}}",
+    "metrics": {
+      "FaithfulnessMetric": {
+        "status": "success",
+        "score": 0.6,
+        "reason": "The score is 0.60 because the actual output appears to be partially accurate, as it does not fully align with the specified time limits for general purpose operating systems (15 minutes) and mobile end-user devices (2 minutes)."
+      },
+      "AnswerRelevancyMetric": {
+        "status": "success",
+        "score": 1.0,
+        "reason": "The score is 1.00 because the response is highly relevant and accurately addresses the question, providing a precise answer without any irrelevant statements."
+      },
+      "ContextualPrecisionMetric": {
+        "status": "success",
+        "score": 1.0,
+        "reason": "The score is 1.00 because all relevant nodes are ranked higher than irrelevant nodes, specifically 'This document contains the relevant information about automatic session locking...' is ranked 1st, while irrelevant nodes are correctly ranked lower, with the 2nd to 8th nodes being about unrelated topics such as secure configuration, firewall, and account management."
+      },
+      "ContextualRecallMetric": {
+        "status": "success",
+        "score": 0.2,
+        "reason": "The score is 0.20 because the sentence 'Automatic session locking must occur after a defined period of inactivity that does not exceed 15 minutes for general purpose operating systems.' is closely attributed to the 9th node in retrieval context, where it matches a specific configuration for general purpose operating systems, but lacks matching sentences in the retrieval context for other points of reference."
+      }
+    }
+  },
+  {
+    "question": "What does Safeguard 6.5 require for administrative access?",
+    "ground_truth": "Require Multi-Factor Authentication (MFA) for all administrative access accounts, where supported, on all enterprise assets, whether managed on-site or through a third-party provider.",
+    "answer": "Safeguard 6.5 requires Multi-Factor Authentication (MFA) for all administrative access accounts, where supported, on all enterprise assets, whether managed on-site or through a third-party provider. This is explicitly stated in the context: \"Require MFA for all administrative access accounts, where supported, on all enterprise assets, whether managed on-site or through a third-party provider.\"",
+    "metrics": {
+      "FaithfulnessMetric": {
+        "status": "success",
+        "score": 0.5,
+        "reason": "The score is 0.50 because the actual output partially aligns with the retrieval context, indicated by the direct contradiction mentioned in the only contradiction found, suggesting some accuracy but also some discrepancy."
+      },
+      "AnswerRelevancyMetric": {
+        "status": "success",
+        "score": 0.625,
+        "reason": "The score is 0.62 because it's lower due to irrelevant statements, specifically mentioning general security and enterprise management practices unrelated to Safeguard 6.5 and administrative access."
+      },
+      "ContextualPrecisionMetric": {
+        "status": "failed",
+        "score": null,
+        "reason": "Evaluation LLM outputted an invalid JSON. Please use a better evaluation model."
+      },
+      "ContextualRecallMetric": {
+        "status": "failed",
+        "score": null,
+        "reason": "Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.1-8b-instant` in organization `org_01kt9n96a4e809ph20kcmms5fw` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Used 4191, Requested 1868. Please try again in 590ms. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}"
+      }
+    }
+  }
+]

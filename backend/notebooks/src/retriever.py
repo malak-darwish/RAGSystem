@@ -1,6 +1,6 @@
 import requests
-from notebooks.src.embedder import embed_query
-from notebooks.src.reranker import rerank
+from backend.notebooks.src.embedder import embed_query
+from backend.notebooks.src.reranker import rerank
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen3:4b"          

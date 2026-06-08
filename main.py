@@ -1,7 +1,7 @@
-from notebooks.src.parser import parse_pdf
-from notebooks.src.embedder import embed_documents
-from notebooks.src.vector_store import connect_weaviate, create_collection, insert_chunks, collection_exists
-from notebooks.src.retriever import query_pipeline
+from backend.notebooks.src.parser import parse_pdf
+from backend.notebooks.src.embedder import embed_documents
+from backend.notebooks.src.vector_store import connect_weaviate, create_collection, insert_chunks, collection_exists
+from backend.notebooks.src.retriever import query_pipeline
 
 client = connect_weaviate()
 
