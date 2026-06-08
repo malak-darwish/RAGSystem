@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Söhne:wght@400;500;600&family=Söhne+Mono:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #0c0c0f;
-  --surface: #13131a;
-  --border: #1e1e2e;
-  --accent: #7c6af7;
-  --accent-dim: #7c6af720;
-  --text: #e8e8f0;
-  --muted: #55556a;
+  --bg: #ffffff;
+  --surface: #f7f7f8;
+  --border: #e5e5e5;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-dim: #eff6ff;
+  --text: #0d0d0d;
+  --muted: #8e8ea0;
+  --user-bubble: #eff6ff;
+  --user-border: #bfdbfe;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -17,9 +21,10 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Syne', sans-serif;
+  font-family: 'Inter', sans-serif;
   height: 100dvh;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root { height: 100dvh; display: flex; flex-direction: column; }

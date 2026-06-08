@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, FileText, Cpu, ChevronDown } from "lucide-react";
+import { Send, FileText, Bot, ChevronDown, User } from "lucide-react";
 
 const MOCK_MESSAGES = [
   {
@@ -30,17 +30,18 @@ const MOCK_MESSAGES = [
 function SourceBadge({ source }) {
   return (
     <div style={{
-      display: "inline-flex", alignItems: "center", gap: "6px",
-      background: "var(--accent-dim)", border: "1px solid var(--accent)30",
-      borderRadius: "4px", padding: "3px 8px", fontSize: "11px",
-      color: "var(--accent)", fontFamily: "'IBM Plex Mono', monospace",
+      display: "inline-flex", alignItems: "center", gap: "5px",
+      background: "#eff6ff", border: "1px solid #bfdbfe",
+      borderRadius: "6px", padding: "3px 9px", fontSize: "12px",
+      color: "#1d4ed8", fontFamily: "'Inter', monospace",
     }}>
-      <FileText size={10} />
-      <span>{source.title}</span>
-      <span style={{ color: "var(--muted)" }}>{source.chunk}</span>
+      <FileText size={11} />
+      <span style={{ fontWeight: 500 }}>{source.title}</span>
+      <span style={{ color: "#93c5fd" }}>·</span>
+      <span style={{ color: "#60a5fa" }}>{source.chunk}</span>
       <span style={{
-        background: "var(--accent)", color: "#fff",
-        borderRadius: "3px", padding: "0 4px", fontSize: "10px",
+        background: "#2563eb", color: "#fff",
+        borderRadius: "4px", padding: "0 5px", fontSize: "11px", fontWeight: 500,
       }}>{Math.round(source.score * 100)}%</span>
     </div>
   );
@@ -50,35 +51,38 @@ function Message({ msg }) {
   const isUser = msg.role === "user";
   return (
     <div style={{
-      display: "flex", flexDirection: "column",
-      alignItems: isUser ? "flex-end" : "flex-start",
-      gap: "8px", padding: "4px 0",
+      display: "flex", gap: "12px",
+      flexDirection: isUser ? "row-reverse" : "row",
+      padding: "2px 0",
     }}>
       <div style={{
-        display: "flex", alignItems: "center", gap: "6px",
-        fontSize: "11px", color: "var(--muted)",
-        fontFamily: "'IBM Plex Mono', monospace",
+        width: "32px", height: "32px", borderRadius: "50%", flexShrink: 0,
+        background: isUser ? "#2563eb" : "#f7f7f8",
+        border: isUser ? "none" : "1px solid #e5e5e5",
+        display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        {!isUser && <Cpu size={11} style={{ color: "var(--accent)" }} />}
-        <span>{isUser ? "you" : "rag·system"}</span>
+        {isUser
+          ? <User size={15} color="#fff" />
+          : <Bot size={15} color="#2563eb" />}
       </div>
 
-      <div style={{
-        maxWidth: "72%",
-        background: isUser ? "var(--accent-dim)" : "var(--surface)",
-        border: `1px solid ${isUser ? "var(--accent)40" : "var(--border)"}`,
-        borderRadius: isUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
-        padding: "12px 16px",
-        fontSize: "14px", lineHeight: "1.6", color: "var(--text)",
-      }}>
-        {msg.text}
-      </div>
-
-      {msg.sources && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", maxWidth: "72%" }}>
-          {msg.sources.map((s, i) => <SourceBadge key={i} source={s} />)}
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxWidth: "75%" }}>
+        <div style={{
+          background: isUser ? "#eff6ff" : "#f7f7f8",
+          border: `1px solid ${isUser ? "#bfdbfe" : "#e5e5e5"}`,
+          borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
+          padding: "11px 16px",
+          fontSize: "15px", lineHeight: "1.65", color: "#0d0d0d",
+        }}>
+          {msg.text}
         </div>
-      )}
+
+        {msg.sources && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+            {msg.sources.map((s, i) => <SourceBadge key={i} source={s} />)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -91,110 +95,117 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    setInput("");
+    // wire to backend here
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100dvh" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#fff" }}>
 
       {/* Header */}
       <header style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 24px", height: "56px", flexShrink: 0,
-        borderBottom: "1px solid var(--border)",
-        background: "var(--surface)",
+        padding: "0 24px", height: "57px", flexShrink: 0,
+        borderBottom: "1px solid #e5e5e5",
+        background: "#ffffff",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{
-            width: "28px", height: "28px", borderRadius: "6px",
-            background: "var(--accent)", display: "flex",
+            width: "30px", height: "30px", borderRadius: "8px",
+            background: "#2563eb", display: "flex",
             alignItems: "center", justifyContent: "center",
           }}>
-            <Cpu size={15} color="#fff" />
+            <Bot size={16} color="#fff" />
           </div>
-          <span style={{ fontWeight: 700, fontSize: "15px", letterSpacing: "-0.3px" }}>
+          <span style={{ fontWeight: 600, fontSize: "15px", color: "#0d0d0d", letterSpacing: "-0.2px" }}>
             RAG Chat
           </span>
-          <span style={{
-            fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px",
-            color: "var(--muted)", background: "var(--border)",
-            padding: "2px 7px", borderRadius: "3px",
-          }}>v0.1</span>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "12px", color: "var(--muted)" }}>Index:</span>
+          <span style={{ fontSize: "13px", color: "#8e8ea0" }}>Index:</span>
           <button style={{
             display: "flex", alignItems: "center", gap: "5px",
-            background: "var(--bg)", border: "1px solid var(--border)",
-            borderRadius: "6px", padding: "5px 10px",
-            color: "var(--text)", fontSize: "12px", cursor: "pointer",
-            fontFamily: "'IBM Plex Mono', monospace",
+            background: "#f7f7f8", border: "1px solid #e5e5e5",
+            borderRadius: "8px", padding: "5px 11px",
+            color: "#0d0d0d", fontSize: "13px", cursor: "pointer",
+            fontWeight: 500,
           }}>
-            docs-v2 <ChevronDown size={12} />
+            docs-v2 <ChevronDown size={12} color="#8e8ea0" />
           </button>
           <div style={{
-            width: "7px", height: "7px", borderRadius: "50%",
-            background: "#4ade80", boxShadow: "0 0 6px #4ade8099",
-          }} />
+            display: "flex", alignItems: "center", gap: "5px",
+            fontSize: "12px", color: "#16a34a",
+          }}>
+            <div style={{
+              width: "7px", height: "7px", borderRadius: "50%", background: "#22c55e",
+            }} />
+            Connected
+          </div>
         </div>
       </header>
 
       {/* Messages */}
       <div style={{
-        flex: 1, overflowY: "auto", padding: "24px",
-        display: "flex", flexDirection: "column", gap: "20px",
+        flex: 1, overflowY: "auto", padding: "28px 24px",
+        display: "flex", flexDirection: "column", gap: "22px",
+        maxWidth: "760px", width: "100%", margin: "0 auto", alignSelf: "stretch",
       }}>
         {MOCK_MESSAGES.map(msg => <Message key={msg.id} msg={msg} />)}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
+      {/* Input */}
       <div style={{
-        padding: "16px 24px 20px",
-        borderTop: "1px solid var(--border)",
-        background: "var(--surface)",
+        padding: "12px 24px 20px",
+        borderTop: "1px solid #e5e5e5",
+        background: "#ffffff",
         flexShrink: 0,
       }}>
         <div style={{
+          maxWidth: "760px", margin: "0 auto",
           display: "flex", gap: "10px", alignItems: "flex-end",
-          background: "var(--bg)", border: "1px solid var(--border)",
-          borderRadius: "12px", padding: "10px 14px",
-          transition: "border-color 0.2s",
+          background: "#f7f7f8", border: "1px solid #e5e5e5",
+          borderRadius: "14px", padding: "10px 14px",
         }}>
           <textarea
             rows={1}
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Ask anything about your documents…"
+            placeholder="Message RAG Chat…"
             style={{
               flex: 1, background: "transparent", border: "none",
-              outline: "none", resize: "none", color: "var(--text)",
-              fontSize: "14px", lineHeight: "1.5",
-              fontFamily: "'Syne', sans-serif",
+              outline: "none", resize: "none", color: "#0d0d0d",
+              fontSize: "15px", lineHeight: "1.5",
+              fontFamily: "'Inter', sans-serif",
             }}
             onKeyDown={e => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                setInput("");
+                handleSend();
               }
             }}
           />
           <button
-            onClick={() => setInput("")}
+            onClick={handleSend}
             style={{
-              width: "34px", height: "34px", borderRadius: "8px",
-              background: input.trim() ? "var(--accent)" : "var(--border)",
+              width: "34px", height: "34px", borderRadius: "9px",
+              background: input.trim() ? "#2563eb" : "#e5e5e5",
               border: "none", cursor: input.trim() ? "pointer" : "default",
               display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 0.2s", flexShrink: 0,
+              transition: "background 0.15s", flexShrink: 0,
             }}
           >
-            <Send size={15} color={input.trim() ? "#fff" : "var(--muted)"} />
+            <Send size={15} color={input.trim() ? "#fff" : "#a0a0a0"} />
           </button>
         </div>
         <p style={{
-          textAlign: "center", fontSize: "11px", color: "var(--muted)",
-          marginTop: "8px", fontFamily: "'IBM Plex Mono', monospace",
+          textAlign: "center", fontSize: "12px", color: "#8e8ea0",
+          marginTop: "8px",
         }}>
-          shift+enter for newline · results ranked by cosine similarity
+          RAG Chat can make mistakes. Results ranked by cosine similarity.
         </p>
       </div>
     </div>
