@@ -7,13 +7,12 @@
   --bg: #ffffff;
   --surface: #f7f7f8;
   --border: #e5e5e5;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-dim: #eff6ff;
+  --accent: #0f6e56;
+  --accent-hover: #085041;
+  --accent-dim: #e1f5ee;
+  --user-border: #9fe1cb;
   --text: #0d0d0d;
   --muted: #8e8ea0;
-  --user-bubble: #eff6ff;
-  --user-border: #bfdbfe;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,6 +26,41 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.markdown ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.markdown ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 6px 0;
+}
+
+.markdown li {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.markdown p {
+  margin: 0;
+}
+
+.markdown strong {
+  font-weight: 600;
+  color: #0d0d0d;
+}
+
+.message-bubble {
+  transition: transform 0.1s ease;
+}
+.message-bubble:hover {
+  transform: translateY(-1px);
+}
 #root { height: 100dvh; display: flex; flex-direction: column; }
 
 ::-webkit-scrollbar { width: 4px; }
