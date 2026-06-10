@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Bot, Loader2 } from "lucide-react";
 import Message from "./components/Message";
 import TypingIndicator from "./components/TypingIndicator";
 import EmptyState from "./components/EmptyState";
 import Sidebar from "./components/Sidebar";
+import { useTour } from "./hooks/useTour";
 
 export default function App() {
   const [messages, setMessages] = useState([]);
@@ -12,9 +13,10 @@ export default function App() {
   const [online, setOnline] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [refreshSidebar, setRefreshSidebar] = useState(0); // ← triggers sidebar refetch
+  const [refreshSidebar, setRefreshSidebar] = useState(0);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const { startTour } = useTour();
 
   useEffect(() => {
     fetch("http://localhost:8000/health")
@@ -25,6 +27,15 @@ export default function App() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // auto-start tour on first visit
+  useEffect(() => {
+    const seen = localStorage.getItem("tour-seen");
+    if (!seen) {
+      setTimeout(startTour, 800);
+      localStorage.setItem("tour-seen", "true");
+    }
+  }, []);
 
   const handleFeedback = async (id, direction) => {
     setMessages(prev =>
@@ -48,7 +59,7 @@ export default function App() {
     const data = await res.json();
     setActiveThreadId(data.id);
     setMessages([]);
-    setRefreshSidebar(n => n + 1); // ← tell sidebar to refetch
+    setRefreshSidebar(n => n + 1);
   };
 
   const handleSelectThread = async (threadId) => {
@@ -71,7 +82,6 @@ export default function App() {
 
     let threadId = activeThreadId;
 
-    // auto-create thread on first message
     if (!threadId) {
       const res = await fetch("http://localhost:8000/threads", {
         method: "POST",
@@ -81,7 +91,7 @@ export default function App() {
       const data = await res.json();
       threadId = data.id;
       setActiveThreadId(threadId);
-      setRefreshSidebar(n => n + 1); // ← tell sidebar to refetch
+      setRefreshSidebar(n => n + 1);
     }
 
     const userMsg = { id: Date.now(), role: "user", text: input.trim(), createdAt: new Date() };
@@ -155,13 +165,12 @@ export default function App() {
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, background: "#fff" }}>
 
         {/* Header */}
-        <header style={{
+        <header id="tour-header" style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "0 24px", height: "57px", flexShrink: 0,
           borderBottom: "1px solid #e5e5e5", background: "#ffffff",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {/* Sidebar toggle */}
             <button
               onClick={() => setSidebarOpen(v => !v)}
               style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", color: "#8e8ea0" }}
@@ -179,11 +188,29 @@ export default function App() {
               RAG Chat
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px",
-            color: online ? "#0f6e56" : "#dc2626" }}>
-            <div style={{ width: "7px", height: "7px", borderRadius: "50%",
-              background: online ? "#1d9e75" : "#ef4444" }} />
-            {online ? "Connected" : "Offline"}
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {/* Tour replay button */}
+            <button
+              onClick={startTour}
+              title="Take the tour"
+              style={{
+                background: "none", border: "0.5px solid #e5e5e5",
+                borderRadius: "8px", padding: "4px 10px",
+                fontSize: "12px", color: "#8e8ea0", cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              ? Tour
+            </button>
+
+            {/* Health indicator */}
+            <div id="tour-status" style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px",
+              color: online ? "#0f6e56" : "#dc2626" }}>
+              <div style={{ width: "7px", height: "7px", borderRadius: "50%",
+                background: online ? "#1d9e75" : "#ef4444" }} />
+              {online ? "Connected" : "Offline"}
+            </div>
           </div>
         </header>
 
@@ -213,7 +240,7 @@ export default function App() {
           padding: "12px 24px 20px", borderTop: "1px solid #e5e5e5",
           background: "#ffffff", flexShrink: 0,
         }}>
-          <div style={{
+          <div id="tour-input" style={{
             maxWidth: "760px", margin: "0 auto",
             display: "flex", gap: "10px", alignItems: "flex-end",
             background: "#f7f7f8", border: "1px solid #e5e5e5",
