@@ -5,6 +5,7 @@ from backend.notebooks.src.vector_store import connect_weaviate
 from backend.notebooks.src.retriever import OLLAMA_URL, OLLAMA_MODEL, retrieve_and_rerank, build_prompt
 from fastapi.responses import StreamingResponse
 import httpx
+from rag_setup.database import init_db
 
 app = FastAPI()
 
@@ -53,3 +54,7 @@ def feedback(req: FeedbackRequest):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
