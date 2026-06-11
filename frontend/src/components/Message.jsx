@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bot, User, ThumbsUp, ThumbsDown, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Bot, User, ThumbsUp, ThumbsDown, RefreshCw, ChevronLeft, ChevronRight, Copy, Check  } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import CitationsAccordion from "./CitationsAccordion";
 import FeedbackModal from "./FeedbackModal";
@@ -11,6 +11,7 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
   const [highlightedCitation, setHighlightedCitation] = useState(null);
   const [currentVersionIdx, setCurrentVersionIdx] = useState(0);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const versions = msg.versions || null;
 
@@ -30,11 +31,16 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
     setCurrentVersionIdx(newIdx);
     setHighlightedCitation(null);
   };
+  const handleCopy = () => {
+    navigator.clipboard.writeText(displayedText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const activeCitations = displayedSources?.length
     ? extractCitedIndices(displayedText)
     : [];
-
+  
   // Thumbs up → immediate, thumbs down → open modal for reason
   function handleThumbsUp() {
     onFeedback(msg.id, "up", null);
@@ -249,6 +255,13 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
                   color="#8e8ea0"
                   style={msg.regenerating ? { animation: "spin 1s linear infinite" } : {}}
                 />
+              </button>
+              <button
+                onClick={handleCopy}
+                title="Copy message"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {copied ? <Check size={14} className="text-teal-600" /> : <Copy size={14} />}
               </button>
 
               {/* Version switcher */}
