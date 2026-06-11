@@ -215,6 +215,7 @@ const handleFeedback = async (id, direction, reason = null) => {
       }
 
       // Fetch real DB message id so regeneration works
+      setRefreshSidebar(n => n + 1);
       if (threadId) {
         try {
           const msgsRes = await fetch(`http://localhost:8000/threads/${threadId}/messages`);
