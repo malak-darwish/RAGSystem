@@ -163,3 +163,15 @@ async def regenerate(req: RegenerateRequest):
         "sources": sources,
     }
  
+@app.delete("/threads/{thread_id}")
+async def delete_thread(thread_id: int):
+    await database.delete_thread(thread_id)
+    return {"ok": True}
+
+class RenameRequest(BaseModel):
+    title: str
+
+@app.patch("/threads/{thread_id}")
+async def rename_thread(thread_id: int, body: RenameRequest):
+    await database.rename_thread(thread_id, body.title)
+    return {"ok": True}

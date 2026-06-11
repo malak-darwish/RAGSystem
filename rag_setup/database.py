@@ -205,4 +205,15 @@ async def save_feedback(message_id: int, value: str, reason: str | None = None):
               (message_id, value, reason),
           )
       conn.close()
- 
+      
+async def delete_thread(thread_id: int):
+    conn = await get_conn()
+    async with conn.cursor() as cur:
+        await cur.execute("DELETE FROM threads WHERE id = %s", (thread_id,))
+    conn.close()
+
+async def rename_thread(thread_id: int, title: str):
+    conn = await get_conn()
+    async with conn.cursor() as cur:
+        await cur.execute("UPDATE threads SET title = %s WHERE id = %s", (title, thread_id))
+    conn.close()
