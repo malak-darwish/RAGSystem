@@ -13,7 +13,8 @@ def create_collection(client):
     return client.collections.create(
         name="CC",
         properties=[
-            Property(name="text", data_type=DataType.TEXT)
+            Property(name="text", data_type=DataType.TEXT),
+            Property(name="page_number", data_type=DataType.INT),
         ],
         vectorizer_config=Configure.Vectorizer.none()
     )
@@ -22,7 +23,8 @@ def insert_chunks(collection, chunks, vectors):
     with collection.batch.dynamic() as batch:
         for chunk, vector in zip(chunks, vectors):
             batch.add_object(
-                properties={"text": chunk.page_content},
+                properties={"text": chunk.page_content,
+                            "page_number": chunk.metadata.get("page", 0) + 1},
                 vector=vector
             )
 

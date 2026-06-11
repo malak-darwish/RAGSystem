@@ -14,6 +14,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],  
+    expose_headers=["X-Sources"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -28,13 +29,25 @@ class QueryRequest(BaseModel):
 @app.post("/query")
 async def query(req: QueryRequest):
     reranked = retrieve_and_rerank(collection, req.question)
-    context = "\n\n---\n\n".join(obj.properties["text"] for obj in reranked)
-    prompt = build_prompt(req.question, context)
 
-    # collect sources from reranked results
-    sources = [obj.properties.get("source", "") for obj in reranked]
+    # Build numbered chunks for citation-aware prompt
+    numbered_chunks = []
+    sources = []
+    for i, obj in enumerate(reranked, start=1):
+        props = obj.properties
+        text  = props.get("text", "")
+        numbered_chunks.append({"index": i, "text": text})
+        sources.append({
+            "index": i,
+            "title": f"Page {props.get('page_number', '?')}",
+            "chunk": text[:120],
+            "text":  text,
+            "score": getattr(obj, "score", None) or 0,
+        })
 
-    full_response = []  
+    prompt = build_prompt(req.question, numbered_chunks)
+
+    full_response = []
 
     async def stream():
         async with httpx.AsyncClient(timeout=None) as client:
@@ -46,14 +59,18 @@ async def query(req: QueryRequest):
                         data = json.loads(line)
                         if not data.get("done"):
                             chunk = data["response"]
-                            full_response.append(chunk)  
+                            full_response.append(chunk)
                             yield chunk
+
         if req.thread_id:
             await database.save_message(req.thread_id, "user", req.question)
             await database.save_message(req.thread_id, "assistant", "".join(full_response), sources)
 
-    return StreamingResponse(stream(), media_type="text/plain")
-
+    return StreamingResponse(
+        stream(),
+        media_type="text/plain",
+        headers={"X-Sources": json.dumps(sources)},
+    )
 
 class FeedbackRequest(BaseModel):
     message_id: int

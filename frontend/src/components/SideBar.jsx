@@ -4,30 +4,32 @@ import { PlusCircle, MessageSquare } from "lucide-react";
 export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, refreshKey }) {
   const [threads, setThreads] = useState([]);
 
-useEffect(() => {
-  fetch("http://localhost:8000/threads")
-    .then(res => res.json())
-    .then(data => setThreads(data.threads || []))
-    .catch(() => {});
-}, []);
+  useEffect(() => {
+    fetch("http://localhost:8000/threads")
+      .then(res => res.json())
+      .then(data => setThreads(data.threads || []))
+      .catch(() => {});
+  }, []);
 
-useEffect(() => {
-  if (refreshKey === 0) return;
-  fetch("http://localhost:8000/threads")
-    .then(res => res.json())
-    .then(data => setThreads(data.threads || []))
-    .catch(() => {});
-}, [refreshKey]);
+  useEffect(() => {
+    if (refreshKey === 0) return;
+    fetch("http://localhost:8000/threads")
+      .then(res => res.json())
+      .then(data => setThreads(data.threads || []))
+      .catch(() => {});
+  }, [refreshKey]);
 
   return (
     <aside style={{
       width: "260px", height: "100dvh", background: "#f9f9f9",
-      borderRight: "1px solid #e5e5e5", display: "flex", flexDirection: "column",
+      borderRight: "1px solid #e5e5e5", display: 
+      "flex", flexDirection: "column",
       flexShrink: 0,
     }}>
       {/* New Chat button */}
       <div style={{ padding: "12px", borderBottom: "1px solid #e5e5e5" }}>
         <button
+          id="tour-new-chat"
           onClick={onNewThread}
           style={{
             width: "100%", display: "flex", alignItems: "center", gap: "8px",
@@ -42,7 +44,7 @@ useEffect(() => {
       </div>
 
       {/* Thread list */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+      <div id="tour-threads" style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
         {threads.length === 0 && (
           <p style={{ fontSize: "12px", color: "#a0a0a0", textAlign: "center", marginTop: "16px" }}>
             No conversations yet
