@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { PlusCircle, MessageSquare, Pencil, Trash2, Check, X, Pin, PinOff } from "lucide-react";
+import { PlusCircle, MessageSquare, Pencil, Trash2, X, Pin, PinOff, Check } from "lucide-react";
 
 export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, onClearThread, refreshKey })  {
   const [threads, setThreads] = useState([]);
@@ -126,7 +126,7 @@ export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, o
                   />
                   <button
                     onClick={e => { e.stopPropagation(); submitRename(thread.id); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", color: "#0f6e56", flexShrink: 0 }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", color: "#999", flexShrink: 0 }}
                   >
                     <Check size={13} />
                   </button>

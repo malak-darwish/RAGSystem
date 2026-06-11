@@ -186,3 +186,12 @@ class PinRequest(BaseModel):
 async def pin_thread(thread_id: int, body: PinRequest):
     await database.pin_thread(thread_id, body.pinned)
     return {"ok": True}
+
+class DeleteAfterRequest(BaseModel):
+    thread_id: int
+    after_message_id: int
+
+@app.post("/messages/delete-after")
+async def delete_messages_after(req: DeleteAfterRequest):
+    await database.delete_messages_after(req.thread_id, req.after_message_id)
+    return {"ok": True}
