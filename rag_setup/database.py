@@ -48,6 +48,17 @@ async def init_db():
                 FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
             )
         """)
+        await cur.execute("""
+            CREATE TABLE IF NOT EXISTS message_versions (
+                id         INT PRIMARY KEY AUTO_INCREMENT,
+                message_id INT NOT NULL,
+                version    INT NOT NULL,
+                content    TEXT NOT NULL,
+                sources    JSON,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+            )
+        """)
     conn.close()
 
 async def create_thread(title: str) -> int:
@@ -94,3 +105,78 @@ async def save_message(thread_id: int, role: str, content: str, sources=None) ->
         row = await cur.fetchone()
     conn.close()
     return row[0]
+
+async def save_version(message_id: int, content: str, sources) -> int:
+    """
+    Saves a regenerated version. On first regeneration, snapshots the
+    original as version 1 first, then saves the new one as version 2.
+    Returns the new version number.
+    """
+    import json as _json
+ 
+    conn = await get_conn()
+    try:
+        async with conn.cursor() as cur:
+            # How many versions exist already?
+            await cur.execute(
+                "SELECT COALESCE(MAX(version), 0) FROM message_versions WHERE message_id = %s",
+                (message_id,)
+            )
+            (max_ver,) = await cur.fetchone()
+ 
+            # First regeneration — snapshot the original as v1
+            if max_ver == 0:
+                await cur.execute(
+                    "SELECT content, sources FROM messages WHERE id = %s", (message_id,)
+                )
+                row = await cur.fetchone()
+                if row:
+                    orig_src = row[1] if isinstance(row[1], str) else _json.dumps(row[1] or [])
+                    await cur.execute(
+                        "INSERT INTO message_versions (message_id, version, content, sources) VALUES (%s, 1, %s, %s)",
+                        (message_id, row[0], orig_src)
+                    )
+                max_ver = 1
+ 
+            new_ver = max_ver + 1
+            src_json = sources if isinstance(sources, str) else _json.dumps(sources or [])
+ 
+            await cur.execute(
+                "INSERT INTO message_versions (message_id, version, content, sources) VALUES (%s, %s, %s, %s)",
+                (message_id, new_ver, content, src_json)
+            )
+            # Update canonical messages row to latest version
+            await cur.execute(
+                "UPDATE messages SET content = %s, sources = %s WHERE id = %s",
+                (content, src_json, message_id)
+            )
+        await conn.commit()
+        return new_ver
+    finally:
+        conn.close()
+ 
+ 
+async def get_versions(message_id: int) -> list:
+    """Returns all versions for a message, oldest first."""
+    import json as _json
+ 
+    conn = await get_conn()
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "SELECT version, content, sources FROM message_versions "
+                "WHERE message_id = %s ORDER BY version ASC",
+                (message_id,)
+            )
+            rows = await cur.fetchall()
+            return [
+                {
+                    "version": r[0],
+                    "content": r[1],
+                    "sources": _json.loads(r[2]) if r[2] else [],
+                }
+                for r in rows
+            ]
+    finally:
+        conn.close()
+ 

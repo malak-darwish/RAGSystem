@@ -49,6 +49,63 @@ export default function App() {
     } catch (_) {}
   };
 
+  const getQuestionForMessage = (assistantId) => {
+    const idx = messages.findIndex(m => m.id === assistantId);
+    if (idx <= 0) return "";
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === "user") return messages[i].text;
+    }
+    return "";
+  };
+
+  const handleRegenerate = async (assistantMsgId) => {
+    if (!activeThreadId) return;
+    const question = getQuestionForMessage(assistantMsgId);
+    if (!question) return;
+
+    // Find the real DB id for this message
+    const msg = messages.find(m => m.id === assistantMsgId);
+    const dbId = msg?.dbId;
+    if (!dbId) return;
+
+    setMessages(prev => prev.map(m =>
+      m.id === assistantMsgId ? { ...m, regenerating: true } : m
+    ));
+
+    try {
+      const res = await fetch("http://localhost:8000/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message_id: dbId,        // ← real DB id, not Date.now()
+          question,
+          thread_id: activeThreadId,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Regenerate failed");
+      const data = await res.json();
+
+      setMessages(prev => prev.map(m => {
+        if (m.id !== assistantMsgId) return m;
+        const prevVersions = m.versions || [{ version: 1, content: m.text, sources: m.sources }];
+        const newVersions = [...prevVersions, { version: data.version, content: data.content, sources: data.sources }];
+        return {
+          ...m,
+          text: data.content,
+          sources: data.sources,
+          versions: newVersions,
+          currentVersion: newVersions.length - 1,
+          regenerating: false,
+        };
+      }));
+    } catch {
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMsgId ? { ...m, regenerating: false } : m
+      ));
+    }
+  };
+
   const handleNewThread = async () => {
     const res = await fetch("http://localhost:8000/threads", {
       method: "POST",
@@ -68,9 +125,9 @@ export default function App() {
     setMessages(
       (data.messages || []).map(m => ({
         id: m.id,
+        dbId: m.id,               // ← real DB id, same value here
         role: m.role,
         text: m.content,
-        // sources may be a JSON string (from DB) or already parsed array
         sources: Array.isArray(m.sources)
           ? m.sources
           : m.sources
@@ -140,7 +197,7 @@ export default function App() {
         }
       }
 
-      // After stream closes, read sources from response header
+      // Read sources header
       const sourcesHeader = res.headers.get("X-Sources");
       if (sourcesHeader) {
         try {
@@ -148,9 +205,22 @@ export default function App() {
           setMessages(prev => prev.map(m =>
             m.id === assistantId ? { ...m, sources } : m
           ));
-        } catch (_) {
-          // malformed header — sources just won't show, not fatal
-        }
+        } catch (_) {}
+      }
+
+      // Fetch real DB message id so regeneration works
+      if (threadId) {
+        try {
+          const msgsRes = await fetch(`http://localhost:8000/threads/${threadId}/messages`);
+          const msgsData = await msgsRes.json();
+          const msgs = msgsData.messages || [];
+          const lastAssistant = [...msgs].reverse().find(m => m.role === "assistant");
+          if (lastAssistant) {
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId ? { ...m, dbId: lastAssistant.id } : m
+            ));
+          }
+        } catch (_) {}
       }
 
     } catch (err) {
@@ -169,7 +239,6 @@ export default function App() {
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
 
-      {/* Sidebar */}
       {sidebarOpen && (
         <Sidebar
           activeThreadId={activeThreadId}
@@ -179,10 +248,8 @@ export default function App() {
         />
       )}
 
-      {/* Main chat area */}
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, background: "#fff" }}>
 
-        {/* Header */}
         <header id="tour-header" style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "0 24px", height: "57px", flexShrink: 0,
@@ -210,7 +277,6 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <button
               onClick={startTour}
-              title="Take the tour"
               style={{
                 background: "none", border: "0.5px solid #e5e5e5",
                 borderRadius: "8px", padding: "4px 10px",
@@ -230,7 +296,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* Messages */}
         <div style={{
           flex: 1, overflowY: "auto", padding: "28px 24px",
           display: "flex", flexDirection: "column", gap: "22px",
@@ -244,14 +309,18 @@ export default function App() {
           )}
 
           {messages.map(msg => (
-            <Message key={msg.id} msg={msg} onFeedback={handleFeedback} />
+            <Message
+              key={msg.id}
+              msg={msg}
+              onFeedback={handleFeedback}
+              onRegenerate={handleRegenerate}
+            />
           ))}
 
           {loading && <TypingIndicator />}
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
         <div style={{
           padding: "12px 24px 20px", borderTop: "1px solid #e5e5e5",
           background: "#ffffff", flexShrink: 0,

@@ -1,19 +1,42 @@
-import { useState } from "react";
-import { Bot, User, ThumbsUp, ThumbsDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bot, User, ThumbsUp, ThumbsDown, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import CitationsAccordion from "./CitationsAccordion";
 import { parseCitations, extractCitedIndices } from "../utils/parseCitations";
 
-export default function Message({ msg, onFeedback }) {
+export default function Message({ msg, onFeedback, onRegenerate }) {
   const isUser = msg.role === "user";
   const [hovered, setHovered] = useState(false);
   const [highlightedCitation, setHighlightedCitation] = useState(null);
+  const [currentVersionIdx, setCurrentVersionIdx] = useState(0);
 
-  const activeCitations = msg.sources?.length
-    ? extractCitedIndices(msg.text)
+  const versions = msg.versions || null;
+
+  // When a new version is added, jump to it
+  useEffect(() => {
+    if (versions && versions.length > 0) {
+      setCurrentVersionIdx(versions.length - 1);
+    }
+  }, [versions?.length]);
+
+  // Safe fallback — never read versions[idx] without checking it exists
+  const displayedText    = versions?.[currentVersionIdx]?.content ?? msg.text;
+  const displayedSources = versions?.[currentVersionIdx]?.sources ?? msg.sources;
+
+  const handleVersionNav = (dir) => {
+    if (!versions) return;
+    const newIdx = currentVersionIdx + dir;
+    if (newIdx < 0 || newIdx >= versions.length) return;
+    setCurrentVersionIdx(newIdx);
+    setHighlightedCitation(null);
+  };
+
+  const activeCitations = displayedSources?.length
+    ? extractCitedIndices(displayedText)
     : [];
 
   function renderContent(text) {
+    if (!text) return null;
     const segments = parseCitations(text);
 
     return segments.map((seg, i) => {
@@ -43,8 +66,7 @@ export default function Message({ msg, onFeedback }) {
         );
       }
 
-      // Find the matching source for tooltip
-      const source = msg.sources?.find(s => s.index === seg.index);
+      const source = displayedSources?.find(s => s.index === seg.index);
       const isActive = activeCitations.includes(seg.index);
       const isHighlighted = highlightedCitation === seg.index;
 
@@ -52,56 +74,28 @@ export default function Message({ msg, onFeedback }) {
         <span key={i} style={{ position: "relative", display: "inline" }}>
           <sup
             onClick={() => setHighlightedCitation(isHighlighted ? null : seg.index)}
-            onMouseEnter={e => {
-              const tt = e.currentTarget.nextSibling;
-              if (tt) tt.style.display = "block";
-            }}
-            onMouseLeave={e => {
-              const tt = e.currentTarget.nextSibling;
-              if (tt) tt.style.display = "none";
-            }}
+            onMouseEnter={e => { const tt = e.currentTarget.nextSibling; if (tt) tt.style.display = "block"; }}
+            onMouseLeave={e => { const tt = e.currentTarget.nextSibling; if (tt) tt.style.display = "none"; }}
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
               background: isHighlighted ? "#085041" : "#0f6e56",
-              color: "#fff",
-              borderRadius: "4px",
-              padding: "0 5px",
-              fontSize: "10px",
-              fontWeight: 700,
-              cursor: "pointer",
-              margin: "0 2px",
-              lineHeight: "1.6",
-              userSelect: "none",
-              transition: "background 0.15s",
-              opacity: isActive ? 1 : 0.45,
+              color: "#fff", borderRadius: "4px", padding: "0 5px",
+              fontSize: "10px", fontWeight: 700, cursor: "pointer",
+              margin: "0 2px", lineHeight: "1.6", userSelect: "none",
+              transition: "background 0.15s", opacity: isActive ? 1 : 0.45,
               verticalAlign: "super",
             }}
           >
             {seg.index}
           </sup>
-
-          {/* Hover tooltip */}
           {source && (
             <span style={{
-              display: "none",
-              position: "absolute",
-              bottom: "calc(100% + 6px)",
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 50,
-              background: "#1a1a1a",
-              color: "#f0f0f0",
-              borderRadius: "8px",
-              padding: "10px 13px",
-              fontSize: "12px",
-              lineHeight: "1.6",
-              maxWidth: "300px",
-              minWidth: "200px",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
-              pointerEvents: "none",
-              whiteSpace: "normal",
+              display: "none", position: "absolute",
+              bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)",
+              zIndex: 50, background: "#1a1a1a", color: "#f0f0f0",
+              borderRadius: "8px", padding: "10px 13px", fontSize: "12px",
+              lineHeight: "1.6", maxWidth: "300px", minWidth: "200px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.25)", pointerEvents: "none", whiteSpace: "normal",
             }}>
               <div style={{ fontWeight: 600, marginBottom: "5px", color: "#5dcaa5" }}>
                 [{source.index}] {source.title}
@@ -122,7 +116,6 @@ export default function Message({ msg, onFeedback }) {
       flexDirection: isUser ? "row-reverse" : "row",
       padding: "2px 0",
     }}>
-      {/* Avatar */}
       <div style={{
         width: "32px", height: "32px", borderRadius: "50%", flexShrink: 0,
         background: isUser ? "#0f6e56" : "#f7f7f8",
@@ -133,7 +126,6 @@ export default function Message({ msg, onFeedback }) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}>
-        {/* Bubble */}
         <div
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -153,20 +145,22 @@ export default function Message({ msg, onFeedback }) {
             <span>{msg.text}</span>
           ) : (
             <div className="markdown" style={{ lineHeight: "1.65" }}>
-              {renderContent(msg.text)}
+              {msg.regenerating
+                ? <span style={{ color: "#8e8ea0", fontStyle: "italic" }}>Regenerating…</span>
+                : renderContent(displayedText)
+              }
             </div>
           )}
 
-          {!isUser && !msg.error && msg.sources?.length > 0 && (
+          {!isUser && !msg.error && displayedSources?.length > 0 && !msg.regenerating && (
             <CitationsAccordion
-              sources={msg.sources}
+              sources={displayedSources}
               activeCitations={activeCitations}
               highlightedIndex={highlightedCitation}
             />
           )}
         </div>
 
-        {/* Timestamp */}
         {msg.createdAt && (
           <span style={{
             fontSize: "11px", color: "#b0b0b0",
@@ -178,9 +172,9 @@ export default function Message({ msg, onFeedback }) {
           </span>
         )}
 
-        {/* Feedback buttons */}
         {!isUser && !msg.error && (
-          <div style={{ display: "flex", gap: "6px", marginTop: "2px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+
             {["up", "down"].map(dir => (
               <button key={dir} onClick={() => onFeedback(msg.id, dir)}
                 style={{
@@ -195,6 +189,60 @@ export default function Message({ msg, onFeedback }) {
                   : <ThumbsDown size={13} color={msg.feedback === "down" ? "#dc2626" : "#8e8ea0"} />}
               </button>
             ))}
+
+            <button
+              onClick={() => onRegenerate(msg.id)}
+              disabled={msg.regenerating}
+              title="Regenerate response"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: "28px", height: "28px", borderRadius: "7px",
+                background: "transparent", border: "1px solid #e5e5e5",
+                cursor: msg.regenerating ? "default" : "pointer",
+                opacity: msg.regenerating ? 0.4 : 1,
+                transition: "all 0.15s",
+              }}
+            >
+              <RefreshCw
+                size={13}
+                color="#8e8ea0"
+                style={msg.regenerating ? { animation: "spin 1s linear infinite" } : {}}
+              />
+            </button>
+
+            {versions && versions.length > 1 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "2px", marginLeft: "4px" }}>
+                <button
+                  onClick={() => handleVersionNav(-1)}
+                  disabled={currentVersionIdx === 0}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: "22px", height: "22px", borderRadius: "5px",
+                    background: "transparent", border: "1px solid #e5e5e5",
+                    cursor: currentVersionIdx === 0 ? "default" : "pointer",
+                    opacity: currentVersionIdx === 0 ? 0.3 : 1,
+                  }}
+                >
+                  <ChevronLeft size={12} color="#8e8ea0" />
+                </button>
+                <span style={{ fontSize: "11px", color: "#8e8ea0", minWidth: "32px", textAlign: "center" }}>
+                  {currentVersionIdx + 1}/{versions.length}
+                </span>
+                <button
+                  onClick={() => handleVersionNav(1)}
+                  disabled={currentVersionIdx === versions.length - 1}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: "22px", height: "22px", borderRadius: "5px",
+                    background: "transparent", border: "1px solid #e5e5e5",
+                    cursor: currentVersionIdx === versions.length - 1 ? "default" : "pointer",
+                    opacity: currentVersionIdx === versions.length - 1 ? 0.3 : 1,
+                  }}
+                >
+                  <ChevronRight size={12} color="#8e8ea0" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

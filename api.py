@@ -26,6 +26,11 @@ class QueryRequest(BaseModel):
     question: str
     thread_id: int | None = None   
 
+class RegenerateRequest(BaseModel):
+    message_id: int
+    question: str
+    thread_id: int
+
 @app.post("/query")
 async def query(req: QueryRequest):
     reranked = retrieve_and_rerank(collection, req.question)
@@ -63,8 +68,8 @@ async def query(req: QueryRequest):
                             yield chunk
 
         if req.thread_id:
-            await database.save_message(req.thread_id, "user", req.question)
-            await database.save_message(req.thread_id, "assistant", "".join(full_response), sources)
+            await database.save_message(req.thread_id, "user", req.question)       # user first
+            await database.save_message(req.thread_id, "assistant", "".join(full_response), sources)  # assistant second
 
     return StreamingResponse(
         stream(),
@@ -115,3 +120,44 @@ async def list_messages(thread_id: int):
 async def save_message(thread_id: int, req: SaveMessageRequest):
     msg_id = await database.save_message(thread_id, req.role, req.content, req.sources)
     return {"id": msg_id}
+
+@app.post("/regenerate")
+async def regenerate(req: RegenerateRequest):
+    reranked = retrieve_and_rerank(collection, req.question)
+ 
+    numbered_chunks = []
+    sources = []
+    for i, obj in enumerate(reranked, start=1):
+        props = obj.properties
+        text  = props.get("text", "")
+        numbered_chunks.append({"index": i, "text": text})
+        sources.append({
+            "index": i,
+            "title": f"Page {props.get('page_number', '?')}",
+            "chunk": text[:120],
+            "text":  text,
+            "score": getattr(obj, "score", None) or 0,
+        })
+ 
+    prompt = build_prompt(req.question, numbered_chunks)
+ 
+    full_response = []
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream("POST", OLLAMA_URL, json={
+            "model": OLLAMA_MODEL, "prompt": prompt, "stream": True
+        }) as r:
+            async for line in r.aiter_lines():
+                if line:
+                    data = json.loads(line)
+                    if not data.get("done"):
+                        full_response.append(data["response"])
+ 
+    content = "".join(full_response)
+    new_ver = await database.save_version(req.message_id, content, sources)
+ 
+    return {
+        "version": new_ver,
+        "content": content,
+        "sources": sources,
+    }
+ 
