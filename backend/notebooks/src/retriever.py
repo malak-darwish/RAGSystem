@@ -56,18 +56,25 @@ def generate(query: str, context_chunks: list) -> str:
     response.raise_for_status()
     return response.json()["response"]
 
-def build_prompt(query: str, context: str) -> str:
+def build_prompt(query: str, numbered_chunks: list[dict]) -> str:
+    """
+    numbered_chunks: list of dicts with keys 'index' (1-based int) and 'text' (str).
+    The model is instructed to cite inline as [1], [2], etc.
+    """
+    context_block = "\n\n".join(
+        f"[{c['index']}] {c['text']}" for c in numbered_chunks
+    )
+
     return (
-        f"You are a helpful assistant. Answer the question clearly using the context below. "
-        f"Synthesize the information — do not copy chunks verbatim. "
-        f"If the context doesn't contain enough information, say so briefly.\n\n"
-        f"Context:\n{context}\n\n"
+        f"You are a helpful assistant. Answer the question using the context chunks below.\n\n"
+        f"Context:\n{context_block}\n\n"
         f"Question: {query}\n\n"
-        f"Formatting rules:\n"
-        f"- If the answer has multiple steps, recommendations, or distinct points, use a markdown bullet list.\n"
-        f"- If the answer is a simple factual question, reply in 2-3 sentences.\n"
-        f"- Use **bold** for key terms or control names.\n"
-        f"- Do not start with 'Based on the context' or 'According to the document'.\n\n"
+        f"Rules:\n"
+        f"- Cite sources inline using [1], [2], etc. immediately after the relevant claim.\n"
+        f"- Use **bold** for key terms.\n"
+        f"- Use bullet points if the answer has multiple distinct points.\n"
+        f"- Do NOT start with 'Based on the context' or 'According to the document'.\n"
+        f"- If the context doesn't contain enough information, say so briefly.\n\n"
         f"Answer:"
     )
 

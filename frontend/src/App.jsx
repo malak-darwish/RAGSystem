@@ -28,7 +28,6 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // auto-start tour on first visit
   useEffect(() => {
     const seen = localStorage.getItem("tour-seen");
     if (!seen) {
@@ -71,7 +70,12 @@ export default function App() {
         id: m.id,
         role: m.role,
         text: m.content,
-        sources: m.sources ? JSON.parse(m.sources) : [],
+        // sources may be a JSON string (from DB) or already parsed array
+        sources: Array.isArray(m.sources)
+          ? m.sources
+          : m.sources
+            ? JSON.parse(m.sources)
+            : [],
         createdAt: new Date(m.created_at),
       }))
     );
@@ -135,6 +139,20 @@ export default function App() {
           ));
         }
       }
+
+      // After stream closes, read sources from response header
+      const sourcesHeader = res.headers.get("X-Sources");
+      if (sourcesHeader) {
+        try {
+          const sources = JSON.parse(sourcesHeader);
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId ? { ...m, sources } : m
+          ));
+        } catch (_) {
+          // malformed header — sources just won't show, not fatal
+        }
+      }
+
     } catch (err) {
       setLoading(false);
       setMessages(prev => [...prev, {
@@ -190,7 +208,6 @@ export default function App() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {/* Tour replay button */}
             <button
               onClick={startTour}
               title="Take the tour"
@@ -204,7 +221,6 @@ export default function App() {
               ? Tour
             </button>
 
-            {/* Health indicator */}
             <div id="tour-status" style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px",
               color: online ? "#0f6e56" : "#dc2626" }}>
               <div style={{ width: "7px", height: "7px", borderRadius: "50%",

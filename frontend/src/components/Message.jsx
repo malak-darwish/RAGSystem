@@ -1,11 +1,120 @@
 import { useState } from "react";
 import { Bot, User, ThumbsUp, ThumbsDown } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import SourceBadge from "./SourceBadge";
+import CitationsAccordion from "./CitationsAccordion";
+import { parseCitations, extractCitedIndices } from "../utils/parseCitations";
 
 export default function Message({ msg, onFeedback }) {
   const isUser = msg.role === "user";
   const [hovered, setHovered] = useState(false);
+  const [highlightedCitation, setHighlightedCitation] = useState(null);
+
+  const activeCitations = msg.sources?.length
+    ? extractCitedIndices(msg.text)
+    : [];
+
+  function renderContent(text) {
+    const segments = parseCitations(text);
+
+    return segments.map((seg, i) => {
+      if (seg.type === "text") {
+        return (
+          <ReactMarkdown
+            key={i}
+            components={{
+              p: ({ children }) => <span style={{ display: "inline" }}>{children}</span>,
+              code: ({ children }) => (
+                <code style={{
+                  background: "#f1f5f9", padding: "2px 6px",
+                  borderRadius: "4px", fontSize: "13px", fontFamily: "monospace",
+                }}>{children}</code>
+              ),
+              pre: ({ children }) => (
+                <pre style={{
+                  background: "#f8fafc", border: "1px solid #e5e5e5",
+                  borderRadius: "8px", padding: "12px", overflowX: "auto",
+                  fontSize: "13px", margin: "8px 0",
+                }}>{children}</pre>
+              ),
+            }}
+          >
+            {seg.content}
+          </ReactMarkdown>
+        );
+      }
+
+      // Find the matching source for tooltip
+      const source = msg.sources?.find(s => s.index === seg.index);
+      const isActive = activeCitations.includes(seg.index);
+      const isHighlighted = highlightedCitation === seg.index;
+
+      return (
+        <span key={i} style={{ position: "relative", display: "inline" }}>
+          <sup
+            onClick={() => setHighlightedCitation(isHighlighted ? null : seg.index)}
+            onMouseEnter={e => {
+              const tt = e.currentTarget.nextSibling;
+              if (tt) tt.style.display = "block";
+            }}
+            onMouseLeave={e => {
+              const tt = e.currentTarget.nextSibling;
+              if (tt) tt.style.display = "none";
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: isHighlighted ? "#085041" : "#0f6e56",
+              color: "#fff",
+              borderRadius: "4px",
+              padding: "0 5px",
+              fontSize: "10px",
+              fontWeight: 700,
+              cursor: "pointer",
+              margin: "0 2px",
+              lineHeight: "1.6",
+              userSelect: "none",
+              transition: "background 0.15s",
+              opacity: isActive ? 1 : 0.45,
+              verticalAlign: "super",
+            }}
+          >
+            {seg.index}
+          </sup>
+
+          {/* Hover tooltip */}
+          {source && (
+            <span style={{
+              display: "none",
+              position: "absolute",
+              bottom: "calc(100% + 6px)",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 50,
+              background: "#1a1a1a",
+              color: "#f0f0f0",
+              borderRadius: "8px",
+              padding: "10px 13px",
+              fontSize: "12px",
+              lineHeight: "1.6",
+              maxWidth: "300px",
+              minWidth: "200px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+              pointerEvents: "none",
+              whiteSpace: "normal",
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: "5px", color: "#5dcaa5" }}>
+                [{source.index}] {source.title}
+              </div>
+              <div style={{ opacity: 0.85 }}>
+                {source.text?.slice(0, 220)}{source.text?.length > 220 ? "…" : ""}
+              </div>
+            </span>
+          )}
+        </span>
+      );
+    });
+  }
 
   return (
     <div style={{
@@ -13,6 +122,7 @@ export default function Message({ msg, onFeedback }) {
       flexDirection: isUser ? "row-reverse" : "row",
       padding: "2px 0",
     }}>
+      {/* Avatar */}
       <div style={{
         width: "32px", height: "32px", borderRadius: "50%", flexShrink: 0,
         background: isUser ? "#0f6e56" : "#f7f7f8",
@@ -23,6 +133,7 @@ export default function Message({ msg, onFeedback }) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}>
+        {/* Bubble */}
         <div
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -34,31 +145,28 @@ export default function Message({ msg, onFeedback }) {
             fontSize: "15px", lineHeight: "1.65", color: "#0d0d0d",
             transform: hovered ? "translateY(-1px)" : "translateY(0)",
             transition: "transform 0.15s ease",
-          }}>
-          {msg.error
-            ? <span style={{ color: "#dc2626" }}>{msg.text}</span>
-            : <div className="markdown">
-                <ReactMarkdown
-                  components={{
-                    code: ({ children }) => (
-                      <code style={{
-                        background: "#f1f5f9", padding: "2px 6px",
-                        borderRadius: "4px", fontSize: "13px", fontFamily: "monospace",
-                      }}>{children}</code>
-                    ),
-                    pre: ({ children }) => (
-                      <pre style={{
-                        background: "#f8fafc", border: "1px solid #e5e5e5",
-                        borderRadius: "8px", padding: "12px", overflowX: "auto",
-                        fontSize: "13px", margin: "8px 0",
-                      }}>{children}</pre>
-                    ),
-                  }}
-                >{msg.text}</ReactMarkdown>
-              </div>
-          }
+          }}
+        >
+          {msg.error ? (
+            <span style={{ color: "#dc2626" }}>{msg.text}</span>
+          ) : isUser ? (
+            <span>{msg.text}</span>
+          ) : (
+            <div className="markdown" style={{ lineHeight: "1.65" }}>
+              {renderContent(msg.text)}
+            </div>
+          )}
+
+          {!isUser && !msg.error && msg.sources?.length > 0 && (
+            <CitationsAccordion
+              sources={msg.sources}
+              activeCitations={activeCitations}
+              highlightedIndex={highlightedCitation}
+            />
+          )}
         </div>
 
+        {/* Timestamp */}
         {msg.createdAt && (
           <span style={{
             fontSize: "11px", color: "#b0b0b0",
@@ -70,12 +178,7 @@ export default function Message({ msg, onFeedback }) {
           </span>
         )}
 
-        {msg.sources?.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            {msg.sources.map((s, i) => <SourceBadge key={i} source={s} />)}
-          </div>
-        )}
-
+        {/* Feedback buttons */}
         {!isUser && !msg.error && (
           <div style={{ display: "flex", gap: "6px", marginTop: "2px" }}>
             {["up", "down"].map(dir => (

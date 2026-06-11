@@ -13,8 +13,8 @@ from deepeval.metrics import (
 
 from langchain_groq import ChatGroq
 
-from notebooks.src.vector_store import connect_weaviate
-from notebooks.src.retriever import retrieve_and_rerank, generate
+from backend.notebooks.src.vector_store import connect_weaviate
+from backend.notebooks.src.retriever import retrieve_and_rerank, generate
 
 
 RESULTS_JSON = "eval_data/deepeval_results.json"
