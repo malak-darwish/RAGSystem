@@ -242,6 +242,96 @@ const handleFeedback = async (id, direction, reason = null) => {
       textareaRef.current?.focus();
     }
   };
+  const handleExportPDF = () => {
+  const printWindow = window.open("", "_blank");
+  
+  const messagesHTML = messages.map(msg => {
+    const isUser = msg.role === "user";
+    const time = msg.createdAt
+      ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : "";
+    const text = msg.versions?.length
+      ? msg.versions[msg.versions.length - 1].content
+      : msg.text;
+
+    // Strip citation markers like [1], [2] for clean PDF
+    const cleanText = text?.replace(/\[(\d+)\]/g, "") || "";
+
+    const sources = msg.versions?.length
+      ? msg.versions[msg.versions.length - 1].sources
+      : msg.sources;
+
+    const sourcesHTML = sources?.length
+      ? `<div class="sources">
+          <div class="sources-title">Sources</div>
+          ${sources.map(s => `<div class="source-item"><strong>${s.title}</strong> — ${s.chunk}</div>`).join("")}
+        </div>`
+      : "";
+
+    return `
+      <div class="message ${isUser ? "user" : "assistant"}">
+        <div class="avatar">${isUser ? "You" : "AI"}</div>
+        <div class="bubble-wrap">
+          <div class="bubble">${cleanText}${sourcesHTML}</div>
+          <div class="time">${time}</div>
+        </div>
+      </div>`;
+  }).join("");
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>RAG Chat Export</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #fff; color: #0d0d0d; padding: 40px; max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 20px; font-weight: 600; color: #0f6e56; margin-bottom: 4px; }
+        .meta { font-size: 12px; color: #8e8ea0; margin-bottom: 32px; }
+        .message { display: flex; gap: 12px; margin-bottom: 24px; }
+        .message.user { flex-direction: row-reverse; }
+        .avatar {
+          width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 11px; font-weight: 600;
+        }
+        .message.user .avatar { background: #0f6e56; color: #fff; }
+        .message.assistant .avatar { background: #f7f7f8; border: 1px solid #e5e5e5; color: #0f6e56; }
+        .bubble-wrap { display: flex; flex-direction: column; gap: 4px; max-width: 75%; }
+        .message.user .bubble-wrap { align-items: flex-end; }
+        .bubble {
+          padding: 11px 16px; font-size: 14px; line-height: 1.65;
+          white-space: pre-wrap; word-break: break-word;
+        }
+        .message.user .bubble {
+          background: #e1f5ee; border: 1px solid #9fe1cb;
+          border-radius: 18px 4px 18px 18px;
+        }
+        .message.assistant .bubble {
+          background: #f7f7f8; border: 1px solid #e5e5e5;
+          border-radius: 4px 18px 18px 18px;
+        }
+        .time { font-size: 11px; color: #b0b0b0; padding: 0 4px; }
+        .sources { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e5e5; }
+        .sources-title { font-size: 11px; font-weight: 600; color: #0f6e56; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .source-item { font-size: 12px; color: #555; margin-bottom: 4px; line-height: 1.5; }
+        @media print {
+          body { padding: 20px; }
+          @page { margin: 20mm; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>RAG Chat</h1>
+      <div class="meta">Exported on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+      ${messagesHTML}
+      <script>window.onload = () => window.print();</script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
 
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
@@ -281,8 +371,18 @@ const handleFeedback = async (id, direction, reason = null) => {
               RAG Chat
             </span>
           </div>
-
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <button
+              onClick={handleExportPDF}
+              style={{
+                background: "none", border: "0.5px solid #e5e5e5",
+                borderRadius: "8px", padding: "4px 10px",
+                fontSize: "12px", color: "#8e8ea0", cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              ↓ Export PDF
+            </button>
             <button
               onClick={startTour}
               style={{
@@ -292,8 +392,9 @@ const handleFeedback = async (id, direction, reason = null) => {
                 fontFamily: "'Inter', sans-serif",
               }}
             >
-              ? Tour
+              Tour
             </button>
+            
 
             <div id="tour-status" style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px",
               color: online ? "#0f6e56" : "#dc2626" }}>
