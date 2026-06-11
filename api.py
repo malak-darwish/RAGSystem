@@ -79,8 +79,9 @@ async def query(req: QueryRequest):
 
 class FeedbackRequest(BaseModel):
     message_id: int
-    feedback: str  
-
+    value: str          # "up" or "down"
+    reason: str | None = None
+ 
 class CreateThreadRequest(BaseModel):
     title: str
 
@@ -90,7 +91,8 @@ class SaveMessageRequest(BaseModel):
     sources: list = []
 
 @app.post("/feedback")
-def feedback(req: FeedbackRequest):
+async def feedback(req: FeedbackRequest):
+    await database.save_feedback(req.message_id, req.value, req.reason)
     return {"status": "ok"}
 
 @app.get("/health")

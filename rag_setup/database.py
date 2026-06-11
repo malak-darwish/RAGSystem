@@ -40,14 +40,27 @@ async def init_db():
             )
         """)
         await cur.execute("""
-            CREATE TABLE IF NOT EXISTS feedback (
-                id         INT PRIMARY KEY AUTO_INCREMENT,
-                message_id INT NOT NULL,
-                value      ENUM('up', 'down') NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
-            )
-        """)
+          CREATE TABLE IF NOT EXISTS feedback (
+              id         INT PRIMARY KEY AUTO_INCREMENT,
+              message_id INT NOT NULL,
+              value      ENUM('up', 'down') NOT NULL,
+              reason     VARCHAR(200),
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+          )
+      """)
+      # Safe migration if table already exists without reason column
+        await cur.execute("""
+          SELECT COUNT(*) FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'feedback'
+            AND COLUMN_NAME = 'reason'
+      """)
+        (col_exists,) = await cur.fetchone()
+        if not col_exists:
+          await cur.execute(
+              "ALTER TABLE feedback ADD COLUMN reason VARCHAR(200) AFTER value"
+          )
         await cur.execute("""
             CREATE TABLE IF NOT EXISTS message_versions (
                 id         INT PRIMARY KEY AUTO_INCREMENT,
@@ -179,4 +192,17 @@ async def get_versions(message_id: int) -> list:
             ]
     finally:
         conn.close()
+
+async def save_feedback(message_id: int, value: str, reason: str | None = None):
+      conn = await get_conn()
+      async with conn.cursor() as cur:
+          # Delete old feedback for this message first (allow changing vote)
+          await cur.execute(
+              "DELETE FROM feedback WHERE message_id = %s", (message_id,)
+          )
+          await cur.execute(
+              "INSERT INTO feedback (message_id, value, reason) VALUES (%s, %s, %s)",
+              (message_id, value, reason),
+          )
+      conn.close()
  
