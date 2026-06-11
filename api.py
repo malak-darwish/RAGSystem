@@ -178,3 +178,11 @@ class RenameRequest(BaseModel):
 async def rename_thread(thread_id: int, body: RenameRequest):
     await database.rename_thread(thread_id, body.title)
     return {"ok": True}
+
+class PinRequest(BaseModel):
+    pinned: bool
+
+@app.patch("/threads/{thread_id}/pin")
+async def pin_thread(thread_id: int, body: PinRequest):
+    await database.pin_thread(thread_id, body.pinned)
+    return {"ok": True}
