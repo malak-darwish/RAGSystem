@@ -68,8 +68,11 @@ async def query(req: QueryRequest):
                             yield chunk
 
         if req.thread_id:
-            await database.save_message(req.thread_id, "user", req.question)       # user first
-            await database.save_message(req.thread_id, "assistant", "".join(full_response), sources)  # assistant second
+            await database.save_message(req.thread_id, "user", req.question)
+            title = " ".join(req.question.split()[:5])
+            await database.rename_thread(req.thread_id, title)
+            await database.save_message(req.thread_id, "assistant", "".join(full_response), sources)
+            
 
     return StreamingResponse(
         stream(),
