@@ -1,99 +1,98 @@
-# RAG Setup — Internal Ship Program
+# RAG Chat
 
-Starter project for the **Internal Ship Program** RAG track. It gives you a ready-to-run
-environment for building a Retrieval-Augmented Generation (RAG) system with the
-**LangChain ecosystem** and **local open-source models** — no API keys, your data never
-leaves the machine.
+A full-stack conversational AI app powered by Retrieval-Augmented Generation. Ask questions about a PDF document and get cited, grounded answers — with full conversation history, response regeneration, and human feedback collection.
 
-The teaching notebook walks through the **ingestion** half of a RAG pipeline on a real
-document (CIS Controls v8) across four stages:
+---
 
-```
-PDF → 2.1 Parse → 2.2 Chunk → 2.3 Embed → 2.4 Store → (later: retrieve → rerank → agent)
-        unstructured   splitters   bge-small   Weaviate
-```
+## Features
 
-| Stage | What it does | Tool |
-|-------|--------------|------|
-| **2.1 Parse** | Extract text, tables, and images from the PDF | `langchain-unstructured` (`hi_res`) |
-| **2.2 Chunk** | Split into retrieval-sized pieces (char / token / by-title) | `langchain-text-splitters` |
-| **2.3 Embed** | Turn chunks into vectors, locally on CPU | `BAAI/bge-small-en-v1.5` |
-| **2.4 Store** | Save vectors in a DB you can search by similarity | `langchain-weaviate` + Weaviate |
+- **Streaming responses** — answers stream token by token from a local Ollama LLM (qwen3:4b)
+- **Inline citations** — responses include `[1]`, `[2]` markers; hover for a source snippet, click to highlight the source in the accordion
+- **Source accordion** — collapsible panel under each response splits sources into "Cited in response" vs "Also retrieved", with page numbers
+- **Response regeneration** — regenerate any answer and switch between versions using `← 1/2 →`
+- **Feedback collection** — thumbs up/down on every response; thumbs down requires a reason selection before submitting
+- **Conversation threads** — full chat history with sidebar navigation, persisted to MariaDB
+- **Guided tour** — first-visit walkthrough powered by driver.js
 
-## Prerequisites
+---
 
-Make sure the following are installed **before** you start.
+## Stack
 
-### 1. Python 3.12+
+| Layer | Tech |
+|---|---|
+| Frontend | Vite + React + Tailwind CSS |
+| Backend | FastAPI + httpx |
+| LLM | Ollama (qwen3:4b) |
+| Vector DB | Weaviate (local) |
+| Embeddings | Custom embedder (sentence-transformers) |
+| Reranker | Custom reranker |
+| Database | MariaDB + aiomysql |
 
-This project requires Python **3.12 or newer** (see `requires-python` in `pyproject.toml`).
-
-### 2. uv (Python package/environment manager)
-
-Dependencies are managed with [uv](https://docs.astral.sh/uv/). Install it once:
-
-```bash
-# Linux / macOS / WSL
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-uv reads `pyproject.toml` + `uv.lock` and creates an isolated `.venv` for you — you don't
-need to manage virtualenvs or `pip` by hand.
-
-### 3. System packages for hi-res PDF parsing
-
-`unstructured` uses OCR and a layout model to detect tables and images. Install these
-system libraries (Debian / Ubuntu / WSL):
-
-```bash
-sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr libgl1
-```
-
-| Package | Why it's needed |
-|---------|-----------------|
-| `poppler-utils` | renders PDF pages to images |
-| `tesseract-ocr` | reads text from those images (OCR) |
-| `libgl1` | shared library the layout/vision model needs |
-
-> On macOS use Homebrew instead: `brew install poppler tesseract`.
-
-### 4. Docker (for Weaviate, recommended)
-
-The vector database stage uses **Weaviate**. Running it in Docker is the recommended path
-(an embedded fallback exists, but Docker is more reliable). Install
-[Docker](https://docs.docker.com/get-docker/), then start Weaviate:
-
-```bash
-docker run -p 8080:8080 -p 50051:50051 cr.weaviate.io/semitechnologies/weaviate:1.27.0
-```
+---
 
 ## Setup
 
-From the `rag_setup/` directory:
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- [Ollama](https://ollama.com) running locally with `qwen3:4b` pulled
+- Weaviate running locally (`docker compose up`)
+- MariaDB running locally
+
+### 1. Clone and install
 
 ```bash
-# 1. Install Python dependencies into an isolated .venv
-uv sync
-
-# 2. Launch Jupyter
-uv run jupyter lab        # or: uv run jupyter notebook
+git clone <your-repo-url>
+cd rag_setup
 ```
 
-Open [`notebooks/01_RAG_setup.ipynb`](notebooks/01_RAG_setup.ipynb), select this project's
-`.venv` as the kernel, and run the cells top to bottom.
-
-> **First run is slow (one-time):** it downloads the embedding model (~130 MB) and the
-> layout model, and `hi_res` parsing of the full PDF takes a few minutes on CPU. Everything
-> is cached afterward.
-
-## Project layout
-
+```bash
+# Backend
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+pip install -r requirements.txt
 ```
-rag_setup/
-├── data/                        # CIS Controls v8 PDF (sample document)
-├── notebooks/
-│   └── 01_RAG_setup.ipynb       # ingestion pipeline walkthrough (Tasks 2.1 → 2.4)
-├── main.py                      # placeholder entry point
-├── pyproject.toml               # dependencies + Python version
-└── uv.lock                      # pinned dependency versions
+
+```bash
+# Frontend
+cd frontend
+npm install
 ```
+
+### 2. Configure environment
+
+Create `rag_setup/.env`:
+
+```env
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=rag_chat
+```
+
+### 3. Ingest the PDF
+
+Place your PDF at `data/CIS.pdf`, then run:
+
+```bash
+python -m main
+```
+
+This builds the Weaviate vector store. Once ingested, exit with `exit`.
+
+### 4. Run
+
+```bash
+# Terminal 1 — from project root
+uvicorn api:app --reload
+
+# Terminal 2 — frontend
+cd rag_setup/frontend
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173).
+
+---
