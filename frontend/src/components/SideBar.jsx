@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { PlusCircle, MessageSquare, Pencil, Trash2, Check, X } from "lucide-react";
+import { PlusCircle, MessageSquare, Pencil, Trash2, Check, X, Pin, PinOff } from "lucide-react";
 
 export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, onClearThread, refreshKey })  {
   const [threads, setThreads] = useState([]);
@@ -41,6 +41,16 @@ export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, o
     setRenamingId(null);
     fetchThreads();
   };
+
+  const handlePin = async (e, thread) => {
+  e.stopPropagation();
+  await fetch(`http://localhost:8000/threads/${thread.id}/pin`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pinned: !thread.pinned }),
+  });
+  fetchThreads();
+};
 
   return (
     <aside style={{
@@ -130,11 +140,25 @@ export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, o
               ) : (
                 /* ── normal mode ── */
                 <>
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "4px" }}>
+                    {thread.pinned && <Pin size={10} style={{ flexShrink: 0, opacity: 0.6 }} />}
                     {thread.title}
                   </span>
                   {(isActive || isHovered) && (
                     <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
+                      <button
+                      onClick={e => handlePin(e, thread)}
+                      title={thread.pinned ? "Unpin" : "Pin"}
+                      style={{
+                        background: "none", border: "none", cursor: "pointer", padding: "2px",
+                        color: thread.pinned ? (isActive ? "#fff" : "#0f6e56") : (isActive ? "rgba(255,255,255,0.7)" : "#999"),
+                        borderRadius: "4px",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = isActive ? "#fff" : "#0f6e56"}
+                      onMouseLeave={e => e.currentTarget.style.color = thread.pinned ? (isActive ? "#fff" : "#0f6e56") : (isActive ? "rgba(255,255,255,0.7)" : "#999")}
+                    >
+                      {thread.pinned ? <PinOff size={12} /> : <Pin size={12} />}
+                    </button>
                       <button
                         onClick={e => startRename(e, thread)}
                         title="Rename"

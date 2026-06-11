@@ -89,7 +89,7 @@ async def get_threads() -> list:
     conn = await get_conn()
     async with conn.cursor(aiomysql.DictCursor) as cur:
         await cur.execute(
-            "SELECT id, title, created_at FROM threads ORDER BY created_at DESC"
+            "SELECT id, title, pinned, created_at FROM threads ORDER BY pinned DESC, created_at DESC"
         )
         rows = await cur.fetchall()
     conn.close()
@@ -216,4 +216,10 @@ async def rename_thread(thread_id: int, title: str):
     conn = await get_conn()
     async with conn.cursor() as cur:
         await cur.execute("UPDATE threads SET title = %s WHERE id = %s", (title, thread_id))
+    conn.close()
+
+async def pin_thread(thread_id: int, pinned: bool):
+    conn = await get_conn()
+    async with conn.cursor() as cur:
+        await cur.execute("UPDATE threads SET pinned = %s WHERE id = %s", (int(pinned), thread_id))
     conn.close()
