@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Bot, User, ThumbsUp, ThumbsDown, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import CitationsAccordion from "./CitationsAccordion";
+import FeedbackModal from "./FeedbackModal";
 import { parseCitations, extractCitedIndices } from "../utils/parseCitations";
 
 export default function Message({ msg, onFeedback, onRegenerate }) {
@@ -9,17 +10,16 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
   const [hovered, setHovered] = useState(false);
   const [highlightedCitation, setHighlightedCitation] = useState(null);
   const [currentVersionIdx, setCurrentVersionIdx] = useState(0);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const versions = msg.versions || null;
 
-  // When a new version is added, jump to it
   useEffect(() => {
     if (versions && versions.length > 0) {
       setCurrentVersionIdx(versions.length - 1);
     }
   }, [versions?.length]);
 
-  // Safe fallback — never read versions[idx] without checking it exists
   const displayedText    = versions?.[currentVersionIdx]?.content ?? msg.text;
   const displayedSources = versions?.[currentVersionIdx]?.sources ?? msg.sources;
 
@@ -34,6 +34,25 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
   const activeCitations = displayedSources?.length
     ? extractCitedIndices(displayedText)
     : [];
+
+  // Thumbs up → immediate, thumbs down → open modal for reason
+  function handleThumbsUp() {
+    onFeedback(msg.id, "up", null);
+  }
+
+  function handleThumbsDown() {
+    // If already downvoted, toggle off
+    if (msg.feedback === "down") {
+      onFeedback(msg.id, "down", null);
+      return;
+    }
+    setShowFeedbackModal(true);
+  }
+
+  function handleModalSubmit(reason) {
+    setShowFeedbackModal(false);
+    onFeedback(msg.id, "down", reason);
+  }
 
   function renderContent(text) {
     if (!text) return null;
@@ -111,141 +130,165 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
   }
 
   return (
-    <div style={{
-      display: "flex", gap: "12px",
-      flexDirection: isUser ? "row-reverse" : "row",
-      padding: "2px 0",
-    }}>
+    <>
+      {showFeedbackModal && (
+        <FeedbackModal
+          onSubmit={handleModalSubmit}
+          onClose={() => setShowFeedbackModal(false)}
+        />
+      )}
+
       <div style={{
-        width: "32px", height: "32px", borderRadius: "50%", flexShrink: 0,
-        background: isUser ? "#0f6e56" : "#f7f7f8",
-        border: isUser ? "none" : "1px solid #e5e5e5",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        display: "flex", gap: "12px",
+        flexDirection: isUser ? "row-reverse" : "row",
+        padding: "2px 0",
       }}>
-        {isUser ? <User size={15} color="#fff" /> : <Bot size={15} color="#0f6e56" />}
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}>
-        <div
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          style={{
-            background: isUser ? "#e1f5ee" : "#f7f7f8",
-            border: `1px solid ${isUser ? "#9fe1cb" : "#e5e5e5"}`,
-            borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
-            padding: "11px 16px",
-            fontSize: "15px", lineHeight: "1.65", color: "#0d0d0d",
-            transform: hovered ? "translateY(-1px)" : "translateY(0)",
-            transition: "transform 0.15s ease",
-          }}
-        >
-          {msg.error ? (
-            <span style={{ color: "#dc2626" }}>{msg.text}</span>
-          ) : isUser ? (
-            <span>{msg.text}</span>
-          ) : (
-            <div className="markdown" style={{ lineHeight: "1.65" }}>
-              {msg.regenerating
-                ? <span style={{ color: "#8e8ea0", fontStyle: "italic" }}>Regenerating…</span>
-                : renderContent(displayedText)
-              }
-            </div>
-          )}
-
-          {!isUser && !msg.error && displayedSources?.length > 0 && !msg.regenerating && (
-            <CitationsAccordion
-              sources={displayedSources}
-              activeCitations={activeCitations}
-              highlightedIndex={highlightedCitation}
-            />
-          )}
+        <div style={{
+          width: "32px", height: "32px", borderRadius: "50%", flexShrink: 0,
+          background: isUser ? "#0f6e56" : "#f7f7f8",
+          border: isUser ? "none" : "1px solid #e5e5e5",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          {isUser ? <User size={15} color="#fff" /> : <Bot size={15} color="#0f6e56" />}
         </div>
 
-        {msg.createdAt && (
-          <span style={{
-            fontSize: "11px", color: "#b0b0b0",
-            alignSelf: isUser ? "flex-end" : "flex-start",
-            paddingLeft: isUser ? 0 : "4px",
-            paddingRight: isUser ? "4px" : 0,
-          }}>
-            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}>
+          <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+              background: isUser ? "#e1f5ee" : "#f7f7f8",
+              border: `1px solid ${isUser ? "#9fe1cb" : "#e5e5e5"}`,
+              borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
+              padding: "11px 16px",
+              fontSize: "15px", lineHeight: "1.65", color: "#0d0d0d",
+              transform: hovered ? "translateY(-1px)" : "translateY(0)",
+              transition: "transform 0.15s ease",
+            }}
+          >
+            {msg.error ? (
+              <span style={{ color: "#dc2626" }}>{msg.text}</span>
+            ) : isUser ? (
+              <span>{msg.text}</span>
+            ) : (
+              <div className="markdown" style={{ lineHeight: "1.65" }}>
+                {msg.regenerating
+                  ? <span style={{ color: "#8e8ea0", fontStyle: "italic" }}>Regenerating…</span>
+                  : renderContent(displayedText)
+                }
+              </div>
+            )}
 
-        {!isUser && !msg.error && (
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+            {!isUser && !msg.error && displayedSources?.length > 0 && !msg.regenerating && (
+              <CitationsAccordion
+                sources={displayedSources}
+                activeCitations={activeCitations}
+                highlightedIndex={highlightedCitation}
+              />
+            )}
+          </div>
 
-            {["up", "down"].map(dir => (
-              <button key={dir} onClick={() => onFeedback(msg.id, dir)}
+          {msg.createdAt && (
+            <span style={{
+              fontSize: "11px", color: "#b0b0b0",
+              alignSelf: isUser ? "flex-end" : "flex-start",
+              paddingLeft: isUser ? 0 : "4px",
+              paddingRight: isUser ? "4px" : 0,
+            }}>
+              {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+
+          {!isUser && !msg.error && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+
+              {/* Thumbs up — immediate */}
+              <button
+                onClick={handleThumbsUp}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
                   width: "28px", height: "28px", borderRadius: "7px",
-                  background: msg.feedback === dir ? (dir === "up" ? "#e1f5ee" : "#fef2f2") : "transparent",
-                  border: `1px solid ${msg.feedback === dir ? (dir === "up" ? "#9fe1cb" : "#fecaca") : "#e5e5e5"}`,
+                  background: msg.feedback === "up" ? "#e1f5ee" : "transparent",
+                  border: `1px solid ${msg.feedback === "up" ? "#9fe1cb" : "#e5e5e5"}`,
                   cursor: "pointer", transition: "all 0.15s",
-                }}>
-                {dir === "up"
-                  ? <ThumbsUp size={13} color={msg.feedback === "up" ? "#0f6e56" : "#8e8ea0"} />
-                  : <ThumbsDown size={13} color={msg.feedback === "down" ? "#dc2626" : "#8e8ea0"} />}
+                }}
+              >
+                <ThumbsUp size={13} color={msg.feedback === "up" ? "#0f6e56" : "#8e8ea0"} />
               </button>
-            ))}
 
-            <button
-              onClick={() => onRegenerate(msg.id)}
-              disabled={msg.regenerating}
-              title="Regenerate response"
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: "28px", height: "28px", borderRadius: "7px",
-                background: "transparent", border: "1px solid #e5e5e5",
-                cursor: msg.regenerating ? "default" : "pointer",
-                opacity: msg.regenerating ? 0.4 : 1,
-                transition: "all 0.15s",
-              }}
-            >
-              <RefreshCw
-                size={13}
-                color="#8e8ea0"
-                style={msg.regenerating ? { animation: "spin 1s linear infinite" } : {}}
-              />
-            </button>
+              {/* Thumbs down — opens modal */}
+              <button
+                onClick={handleThumbsDown}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: "28px", height: "28px", borderRadius: "7px",
+                  background: msg.feedback === "down" ? "#fef2f2" : "transparent",
+                  border: `1px solid ${msg.feedback === "down" ? "#fecaca" : "#e5e5e5"}`,
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+              >
+                <ThumbsDown size={13} color={msg.feedback === "down" ? "#dc2626" : "#8e8ea0"} />
+              </button>
 
-            {versions && versions.length > 1 && (
-              <div style={{ display: "flex", alignItems: "center", gap: "2px", marginLeft: "4px" }}>
-                <button
-                  onClick={() => handleVersionNav(-1)}
-                  disabled={currentVersionIdx === 0}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: "22px", height: "22px", borderRadius: "5px",
-                    background: "transparent", border: "1px solid #e5e5e5",
-                    cursor: currentVersionIdx === 0 ? "default" : "pointer",
-                    opacity: currentVersionIdx === 0 ? 0.3 : 1,
-                  }}
-                >
-                  <ChevronLeft size={12} color="#8e8ea0" />
-                </button>
-                <span style={{ fontSize: "11px", color: "#8e8ea0", minWidth: "32px", textAlign: "center" }}>
-                  {currentVersionIdx + 1}/{versions.length}
-                </span>
-                <button
-                  onClick={() => handleVersionNav(1)}
-                  disabled={currentVersionIdx === versions.length - 1}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: "22px", height: "22px", borderRadius: "5px",
-                    background: "transparent", border: "1px solid #e5e5e5",
-                    cursor: currentVersionIdx === versions.length - 1 ? "default" : "pointer",
-                    opacity: currentVersionIdx === versions.length - 1 ? 0.3 : 1,
-                  }}
-                >
-                  <ChevronRight size={12} color="#8e8ea0" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+              {/* Regenerate */}
+              <button
+                onClick={() => onRegenerate(msg.id)}
+                disabled={msg.regenerating}
+                title="Regenerate response"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: "28px", height: "28px", borderRadius: "7px",
+                  background: "transparent", border: "1px solid #e5e5e5",
+                  cursor: msg.regenerating ? "default" : "pointer",
+                  opacity: msg.regenerating ? 0.4 : 1,
+                  transition: "all 0.15s",
+                }}
+              >
+                <RefreshCw
+                  size={13}
+                  color="#8e8ea0"
+                  style={msg.regenerating ? { animation: "spin 1s linear infinite" } : {}}
+                />
+              </button>
+
+              {/* Version switcher */}
+              {versions && versions.length > 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: "2px", marginLeft: "4px" }}>
+                  <button
+                    onClick={() => handleVersionNav(-1)}
+                    disabled={currentVersionIdx === 0}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: "22px", height: "22px", borderRadius: "5px",
+                      background: "transparent", border: "1px solid #e5e5e5",
+                      cursor: currentVersionIdx === 0 ? "default" : "pointer",
+                      opacity: currentVersionIdx === 0 ? 0.3 : 1,
+                    }}
+                  >
+                    <ChevronLeft size={12} color="#8e8ea0" />
+                  </button>
+                  <span style={{ fontSize: "11px", color: "#8e8ea0", minWidth: "32px", textAlign: "center" }}>
+                    {currentVersionIdx + 1}/{versions.length}
+                  </span>
+                  <button
+                    onClick={() => handleVersionNav(1)}
+                    disabled={currentVersionIdx === versions.length - 1}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: "22px", height: "22px", borderRadius: "5px",
+                      background: "transparent", border: "1px solid #e5e5e5",
+                      cursor: currentVersionIdx === versions.length - 1 ? "default" : "pointer",
+                      opacity: currentVersionIdx === versions.length - 1 ? 0.3 : 1,
+                    }}
+                  >
+                    <ChevronRight size={12} color="#8e8ea0" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

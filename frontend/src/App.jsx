@@ -36,7 +36,7 @@ export default function App() {
     }
   }, []);
 
-  const handleFeedback = async (id, direction) => {
+const handleFeedback = async (id, direction, reason = null) => {
     setMessages(prev =>
       prev.map(m => m.id === id ? { ...m, feedback: direction } : m)
     );
@@ -44,7 +44,7 @@ export default function App() {
       await fetch("http://localhost:8000/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message_id: id, feedback: direction }),
+        body: JSON.stringify({ message_id: id, value: direction, reason }),
       });
     } catch (_) {}
   };
