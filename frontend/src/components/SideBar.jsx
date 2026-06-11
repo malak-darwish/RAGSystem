@@ -141,7 +141,7 @@ export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, o
                 /* ── normal mode ── */
                 <>
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "4px" }}>
-                    {thread.pinned && <Pin size={10} style={{ flexShrink: 0, opacity: 0.6 }} />}
+                    {!!thread.pinned && <Pin size={10} style={{ flexShrink: 0, opacity: 0.6 }} />}
                     {thread.title}
                   </span>
                   {(isActive || isHovered) && (
