@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
-import { Bot, User, ThumbsUp, ThumbsDown, RefreshCw, ChevronLeft, ChevronRight, Copy, Check  } from "lucide-react";
+import { Bot, User, ThumbsUp, ThumbsDown, RefreshCw, ChevronLeft, ChevronRight, Copy, Check, Pencil } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import CitationsAccordion from "./CitationsAccordion";
 import FeedbackModal from "./FeedbackModal";
 import { parseCitations, extractCitedIndices } from "../utils/parseCitations";
 
-export default function Message({ msg, onFeedback, onRegenerate }) {
+export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
   const isUser = msg.role === "user";
   const [hovered, setHovered] = useState(false);
   const [highlightedCitation, setHighlightedCitation] = useState(null);
   const [currentVersionIdx, setCurrentVersionIdx] = useState(0);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [copied, setCopied] = useState(false);
-
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  
   const versions = msg.versions || null;
 
   useEffect(() => {
@@ -158,11 +160,12 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
           {isUser ? <User size={15} color="#fff" /> : <Bot size={15} color="#0f6e56" />}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}>
-          <div
+        <div
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
-            style={{
+            style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}
+          >
+            <div style={{
               background: isUser ? "#e1f5ee" : "#f7f7f8",
               border: `1px solid ${isUser ? "#9fe1cb" : "#e5e5e5"}`,
               borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
@@ -175,8 +178,46 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
             {msg.error ? (
               <span style={{ color: "#dc2626" }}>{msg.text}</span>
             ) : isUser ? (
-              <span>{msg.text}</span>
+              editing ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <textarea
+                    autoFocus
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onReask(msg.id, editValue); setEditing(false); }
+                      if (e.key === "Escape") setEditing(false);
+                    }}
+                    style={{
+                      width: "100%", background: "#fff", border: "1px solid #9fe1cb",
+                      borderRadius: "8px", padding: "8px", fontSize: "14px",
+                      lineHeight: "1.5", fontFamily: "'Inter', sans-serif",
+                      outline: "none", resize: "none", minHeight: "60px",
+                      color: "#0d0d0d",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={() => setEditing(false)}
+                      style={{
+                        padding: "4px 12px", borderRadius: "7px", border: "1px solid #e5e5e5",
+                        background: "transparent", fontSize: "12px", cursor: "pointer", color: "#8e8ea0",
+                      }}
+                    >Cancel</button>
+                    <button
+                      onClick={() => { onReask(msg.id, editValue); setEditing(false); }}
+                      style={{
+                        padding: "4px 12px", borderRadius: "7px", border: "none",
+                        background: "#0f6e56", fontSize: "12px", cursor: "pointer", color: "#fff",
+                      }}
+                    >Send</button>
+                  </div>
+                </div>
+              ) : (
+                <span>{msg.text}</span>
+              )
             ) : (
+              
               <div className="markdown" style={{ lineHeight: "1.65" }}>
                 {msg.regenerating
                   ? <span style={{ color: "#8e8ea0", fontStyle: "italic" }}>Regenerating…</span>
@@ -204,7 +245,22 @@ export default function Message({ msg, onFeedback, onRegenerate }) {
               {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
-
+            {isUser && !msg.error && hovered && !editing && (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "2px" }}>
+                <button
+                  onClick={() => { setEditValue(msg.text); setEditing(true); }}
+                  title="Edit & resend"
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: "28px", height: "28px", borderRadius: "7px",
+                    background: "transparent", border: "1px solid #e5e5e5",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Pencil size={13} color="#8e8ea0" />
+                </button>
+              </div>
+            )}
           {!isUser && !msg.error && (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
 

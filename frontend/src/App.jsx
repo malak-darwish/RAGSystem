@@ -106,6 +106,23 @@ const handleFeedback = async (id, direction, reason = null) => {
     }
   };
 
+  const handleReask = async (userMsgId, newText) => {
+  if (!activeThreadId) return;
+  const msg = messages.find(m => m.id === userMsgId);
+  const dbId = msg?.dbId;
+  if (!dbId) return;
+
+  const idx = messages.findIndex(m => m.id === userMsgId);
+  setMessages(prev => prev.slice(0, idx));
+
+  await fetch("http://localhost:8000/messages/delete-after", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ thread_id: activeThreadId, after_message_id: dbId }),
+  });
+
+  handleSend(newText);
+};
   const handleNewThread = async () => {
     const res = await fetch("http://localhost:8000/threads", {
       method: "POST",
@@ -144,28 +161,32 @@ const handleFeedback = async (id, direction, reason = null) => {
 };
 
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+ const handleSend = async (overrideInput) => {
+    const text = (overrideInput ?? input).trim();
+  if (!text || loading) return;
 
-    let threadId = activeThreadId;
+  let threadId = activeThreadId;
 
-    if (!threadId) {
-      const res = await fetch("http://localhost:8000/threads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: input.slice(0, 50) }),
-      });
-      const data = await res.json();
-      threadId = data.id;
-      setActiveThreadId(threadId);
-      setRefreshSidebar(n => n + 1);
-    }
+  if (!threadId) {
+    const res = await fetch("http://localhost:8000/threads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: text.slice(0, 50) }), // ← was input.slice
+    });
+    const data = await res.json();
+    threadId = data.id;
+    setActiveThreadId(threadId);
+    setRefreshSidebar(n => n + 1);
+  }
 
-    const userMsg = { id: Date.now(), role: "user", text: input.trim(), createdAt: new Date() };
-    setMessages(prev => [...prev, userMsg]);
+  const userMsg = { id: Date.now(), role: "user", text, createdAt: new Date() };
+  setMessages(prev => [...prev, userMsg]);
+  
+  if (!overrideInput) {  // ← only clear when not a reask
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    setLoading(true);
+  }
+  setLoading(true);
 
     try {
       const res = await fetch("http://localhost:8000/query", {
@@ -423,6 +444,7 @@ const handleFeedback = async (id, direction, reason = null) => {
               msg={msg}
               onFeedback={handleFeedback}
               onRegenerate={handleRegenerate}
+              onReask={handleReask}
             />
           ))}
 

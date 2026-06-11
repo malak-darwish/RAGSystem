@@ -223,3 +223,12 @@ async def pin_thread(thread_id: int, pinned: bool):
     async with conn.cursor() as cur:
         await cur.execute("UPDATE threads SET pinned = %s WHERE id = %s", (int(pinned), thread_id))
     conn.close()
+
+async def delete_messages_after(thread_id: int, after_message_id: int):
+    conn = await get_conn()
+    async with conn.cursor() as cur:
+        await cur.execute(
+            "DELETE FROM messages WHERE thread_id = %s AND id >= %s",
+            (thread_id, after_message_id)
+        )
+    conn.close()
