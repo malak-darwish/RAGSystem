@@ -138,6 +138,12 @@ const handleFeedback = async (id, direction, reason = null) => {
     );
   };
 
+  const handleClearThread = () => {
+  setActiveThreadId(null);
+  setMessages([]);
+};
+
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
@@ -244,6 +250,7 @@ const handleFeedback = async (id, direction, reason = null) => {
           activeThreadId={activeThreadId}
           onSelectThread={handleSelectThread}
           onNewThread={handleNewThread}
+          onClearThread={handleClearThread}
           refreshKey={refreshSidebar}
         />
       )}

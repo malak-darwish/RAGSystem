@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { PlusCircle, MessageSquare, Pencil, Trash2, Check, X } from "lucide-react";
 
-export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, refreshKey }) {
+export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, onClearThread, refreshKey })  {
   const [threads, setThreads] = useState([]);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
@@ -21,9 +21,9 @@ export default function Sidebar({ activeThreadId, onSelectThread, onNewThread, r
     e.stopPropagation();
     if (!confirm("Delete this chat?")) return;
     await fetch(`http://localhost:8000/threads/${threadId}`, { method: "DELETE" });
-    if (activeThreadId === threadId) onNewThread();
+    if (activeThreadId === threadId) onClearThread();
     fetchThreads();
-  };
+};
 
   const startRename = (e, thread) => {
     e.stopPropagation();
