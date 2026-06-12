@@ -34,20 +34,20 @@ export default function App() {
   }, [messages, loading]);
 
   useEffect(() => {
-  const handler = (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-      e.preventDefault();
-      setSearchOpen(v => !v);
-      setTimeout(() => searchRef.current?.focus(), 50);
-    }
-    if (e.key === "Escape") {
-      setSearchOpen(false);
-      setSearchQuery("");
-    }
-  };
-  window.addEventListener("keydown", handler);
-  return () => window.removeEventListener("keydown", handler);
-}, []);
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchOpen(v => !v);
+        setTimeout(() => searchRef.current?.focus(), 50);
+      }
+      if (e.key === "Escape") {
+        setSearchOpen(false);
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     const seen = localStorage.getItem("tour-seen");
@@ -57,7 +57,7 @@ export default function App() {
     }
   }, []);
 
-const handleFeedback = async (id, direction, reason = null) => {
+  const handleFeedback = async (id, direction, reason = null) => {
     setMessages(prev =>
       prev.map(m => m.id === id ? { ...m, feedback: direction } : m)
     );
@@ -84,7 +84,6 @@ const handleFeedback = async (id, direction, reason = null) => {
     const question = getQuestionForMessage(assistantMsgId);
     if (!question) return;
 
-    // Find the real DB id for this message
     const msg = messages.find(m => m.id === assistantMsgId);
     const dbId = msg?.dbId;
     if (!dbId) return;
@@ -98,28 +97,78 @@ const handleFeedback = async (id, direction, reason = null) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message_id: dbId,        // ← real DB id, not Date.now()
+          message_id: dbId,
           question,
           thread_id: activeThreadId,
         }),
       });
 
       if (!res.ok) throw new Error("Regenerate failed");
-      const data = await res.json();
 
-      setMessages(prev => prev.map(m => {
-        if (m.id !== assistantMsgId) return m;
-        const prevVersions = m.versions || [{ version: 1, content: m.text, sources: m.sources }];
-        const newVersions = [...prevVersions, { version: data.version, content: data.content, sources: data.sources }];
-        return {
-          ...m,
-          text: data.content,
-          sources: data.sources,
-          versions: newVersions,
-          currentVersion: newVersions.length - 1,
-          regenerating: false,
-        };
-      }));
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let firstChunk = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        fullText += chunk;
+
+        if (firstChunk) {
+          firstChunk = false;
+          setMessages(prev => prev.map(m => {
+            if (m.id !== assistantMsgId) return m;
+            const prevVersions = m.versions || [{ version: 1, content: m.text, sources: m.sources }];
+            return {
+              ...m,
+              versions: [...prevVersions, { version: prevVersions.length + 1, content: "", sources: [] }],
+            };
+          }));
+        } else {
+          setMessages(prev => prev.map(m => {
+            if (m.id !== assistantMsgId) return m;
+            const versions = [...(m.versions || [])];
+            versions[versions.length - 1] = {
+              ...versions[versions.length - 1],
+              content: fullText,
+            };
+            return { ...m, versions };
+          }));
+        }
+      }
+
+      // patch sources from header
+      const sourcesHeader = res.headers.get("X-Sources-Regen");
+      if (sourcesHeader) {
+        const sources = JSON.parse(sourcesHeader);
+        setMessages(prev => prev.map(m => {
+          if (m.id !== assistantMsgId) return m;
+          const versions = [...(m.versions || [])];
+          versions[versions.length - 1] = { ...versions[versions.length - 1], sources };
+          return { ...m, versions, regenerating: false };
+        }));
+      } else {
+        setMessages(prev => prev.map(m =>
+          m.id === assistantMsgId ? { ...m, regenerating: false } : m
+        ));
+      }
+
+      // re-fetch thread to persist dbId
+      try {
+        const msgsRes = await fetch(`http://localhost:8000/threads/${activeThreadId}/messages`);
+        const msgsData = await msgsRes.json();
+        const msgs = msgsData.messages || [];
+        const lastAssistant = [...msgs].reverse().find(m => m.role === "assistant");
+        if (lastAssistant) {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMsgId ? { ...m, dbId: lastAssistant.id } : m
+          ));
+        }
+      } catch (_) {}
+
     } catch {
       setMessages(prev => prev.map(m =>
         m.id === assistantMsgId ? { ...m, regenerating: false } : m
@@ -127,23 +176,29 @@ const handleFeedback = async (id, direction, reason = null) => {
     }
   };
 
-  const handleReask = async (userMsgId, newText) => {
+const handleReask = async (userMsgId, newText) => {
   if (!activeThreadId) return;
-  const msg = messages.find(m => m.id === userMsgId);
+
+  const idx = messages.findIndex(m => m.id === userMsgId);
+  if (idx === -1) return;
+
+  const msg = messages[idx];
   const dbId = msg?.dbId;
   if (!dbId) return;
 
-  const idx = messages.findIndex(m => m.id === userMsgId);
   setMessages(prev => prev.slice(0, idx));
 
-  await fetch("http://localhost:8000/messages/delete-after", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ thread_id: activeThreadId, after_message_id: dbId }),
-  });
+  try {
+    await fetch("http://localhost:8000/messages/delete-after", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ thread_id: activeThreadId, after_message_id: dbId }),
+    });
+  } catch (_) {}
 
   handleSend(newText);
 };
+
   const handleNewThread = async () => {
     const res = await fetch("http://localhost:8000/threads", {
       method: "POST",
@@ -163,7 +218,7 @@ const handleFeedback = async (id, direction, reason = null) => {
     setMessages(
       (data.messages || []).map(m => ({
         id: m.id,
-        dbId: m.id,               // ← real DB id, same value here
+        dbId: m.id,
         role: m.role,
         text: m.content,
         sources: Array.isArray(m.sources)
@@ -177,37 +232,36 @@ const handleFeedback = async (id, direction, reason = null) => {
   };
 
   const handleClearThread = () => {
-  setActiveThreadId(null);
-  setMessages([]);
-};
+    setActiveThreadId(null);
+    setMessages([]);
+  };
 
-
- const handleSend = async (overrideInput) => {
+  const handleSend = async (overrideInput) => {
     const text = (overrideInput ?? input).trim();
-  if (!text || loading) return;
+    if (!text || loading) return;
 
-  let threadId = activeThreadId;
+    let threadId = activeThreadId;
 
-  if (!threadId) {
-    const res = await fetch("http://localhost:8000/threads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: text.slice(0, 50) }), // ← was input.slice
-    });
-    const data = await res.json();
-    threadId = data.id;
-    setActiveThreadId(threadId);
-    setRefreshSidebar(n => n + 1);
-  }
+    if (!threadId) {
+      const res = await fetch("http://localhost:8000/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: text.slice(0, 50) }),
+      });
+      const data = await res.json();
+      threadId = data.id;
+      setActiveThreadId(threadId);
+      setRefreshSidebar(n => n + 1);
+    }
 
-  const userMsg = { id: Date.now(), role: "user", text, createdAt: new Date() };
-  setMessages(prev => [...prev, userMsg]);
-  
-  if (!overrideInput) {  // ← only clear when not a reask
-    setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-  }
-  setLoading(true);
+    const userMsg = { id: Date.now(), role: "user", text, createdAt: new Date() };
+    setMessages(prev => [...prev, userMsg]);
+
+    if (!overrideInput) {
+      setInput("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+    }
+    setLoading(true);
 
     try {
       const res = await fetch("http://localhost:8000/query", {
@@ -258,19 +312,23 @@ const handleFeedback = async (id, direction, reason = null) => {
 
       // Fetch real DB message id so regeneration works
       setRefreshSidebar(n => n + 1);
-      if (threadId) {
-        try {
-          const msgsRes = await fetch(`http://localhost:8000/threads/${threadId}/messages`);
-          const msgsData = await msgsRes.json();
-          const msgs = msgsData.messages || [];
-          const lastAssistant = [...msgs].reverse().find(m => m.role === "assistant");
-          if (lastAssistant) {
-            setMessages(prev => prev.map(m =>
-              m.id === assistantId ? { ...m, dbId: lastAssistant.id } : m
-            ));
-          }
-        } catch (_) {}
-      }
+      try {
+        const msgsRes = await fetch(`http://localhost:8000/threads/${threadId}/messages`);
+        const msgsData = await msgsRes.json();
+        const msgs = msgsData.messages || [];
+        const lastAssistant = [...msgs].reverse().find(m => m.role === "assistant");
+        const lastUser = [...msgs].reverse().find(m => m.role === "user"); 
+        if (lastAssistant) {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId ? { ...m, dbId: lastAssistant.id } : m  // ← fixed
+          ));
+        }
+        if (lastUser) {  
+    setMessages(prev => prev.map(m =>
+      m.id === userMsg.id ? { ...m, dbId: lastUser.id } : m
+    ));
+  }
+      } catch (_) {}
 
     } catch (err) {
       setLoading(false);
@@ -284,112 +342,104 @@ const handleFeedback = async (id, direction, reason = null) => {
       textareaRef.current?.focus();
     }
   };
+
   const handleExportPDF = () => {
-  const printWindow = window.open("", "_blank");
-  
-  const messagesHTML = messages.map(msg => {
-    const isUser = msg.role === "user";
-    const time = msg.createdAt
-      ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-      : "";
-    const text = msg.versions?.length
-      ? msg.versions[msg.versions.length - 1].content
-      : msg.text;
+    const printWindow = window.open("", "_blank");
 
-    // Strip citation markers like [1], [2] for clean PDF
-    const cleanText = text?.replace(/\[(\d+)\]/g, "") || "";
+    const messagesHTML = messages.map(msg => {
+      const isUser = msg.role === "user";
+      const time = msg.createdAt
+        ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "";
+      const text = msg.versions?.length
+        ? msg.versions[msg.versions.length - 1].content
+        : msg.text;
 
-    const sources = msg.versions?.length
-      ? msg.versions[msg.versions.length - 1].sources
-      : msg.sources;
+      const cleanText = text?.replace(/\[(\d+)\]/g, "") || "";
 
-    const sourcesHTML = sources?.length
-      ? `<div class="sources">
-          <div class="sources-title">Sources</div>
-          ${sources.map(s => `<div class="source-item"><strong>${s.title}</strong> — ${s.chunk}</div>`).join("")}
-        </div>`
-      : "";
+      const sources = msg.versions?.length
+        ? msg.versions[msg.versions.length - 1].sources
+        : msg.sources;
 
-    return `
-      <div class="message ${isUser ? "user" : "assistant"}">
-        <div class="avatar">${isUser ? "You" : "AI"}</div>
-        <div class="bubble-wrap">
-          <div class="bubble">${cleanText}${sourcesHTML}</div>
-          <div class="time">${time}</div>
-        </div>
-      </div>`;
-  }).join("");
+      const sourcesHTML = sources?.length
+        ? `<div class="sources">
+            <div class="sources-title">Sources</div>
+            ${sources.map(s => `<div class="source-item"><strong>${s.title}</strong> — ${s.chunk}</div>`).join("")}
+          </div>`
+        : "";
 
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8" />
-      <title>RAG Chat Export</title>
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: #fff; color: #0d0d0d; padding: 40px; max-width: 800px; margin: 0 auto; }
-        h1 { font-size: 20px; font-weight: 600; color: #0f6e56; margin-bottom: 4px; }
-        .meta { font-size: 12px; color: #8e8ea0; margin-bottom: 32px; }
-        .message { display: flex; gap: 12px; margin-bottom: 24px; }
-        .message.user { flex-direction: row-reverse; }
-        .avatar {
-          width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 11px; font-weight: 600;
-        }
-        .message.user .avatar { background: #0f6e56; color: #fff; }
-        .message.assistant .avatar { background: #f7f7f8; border: 1px solid #e5e5e5; color: #0f6e56; }
-        .bubble-wrap { display: flex; flex-direction: column; gap: 4px; max-width: 75%; }
-        .message.user .bubble-wrap { align-items: flex-end; }
-        .bubble {
-          padding: 11px 16px; font-size: 14px; line-height: 1.65;
-          white-space: pre-wrap; word-break: break-word;
-        }
-        .message.user .bubble {
-          background: #e1f5ee; border: 1px solid #9fe1cb;
-          border-radius: 18px 4px 18px 18px;
-        }
-        .message.assistant .bubble {
-          background: #f7f7f8; border: 1px solid #e5e5e5;
-          border-radius: 4px 18px 18px 18px;
-        }
-        .time { font-size: 11px; color: #b0b0b0; padding: 0 4px; }
-        .sources { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e5e5; }
-        .sources-title { font-size: 11px; font-weight: 600; color: #0f6e56; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .source-item { font-size: 12px; color: #555; margin-bottom: 4px; line-height: 1.5; }
-        @media print {
-          body { padding: 20px; }
-          @page { margin: 20mm; }
-        }
-      </style>
-    </head>
-    <body>
-      <h1>RAG Chat</h1>
-      <div class="meta">Exported on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
-      ${messagesHTML}
-      <script>window.onload = () => window.print();</script>
-    </body>
-    </html>
-  `);
-  printWindow.document.close();
-};
+      return `
+        <div class="message ${isUser ? "user" : "assistant"}">
+          <div class="avatar">${isUser ? "You" : "AI"}</div>
+          <div class="bubble-wrap">
+            <div class="bubble">${cleanText}${sourcesHTML}</div>
+            <div class="time">${time}</div>
+          </div>
+        </div>`;
+    }).join("");
 
-    const matchingIds = searchQuery.trim()
-      ? messages
-          .filter(m => (m.text ?? "").toLowerCase().includes(searchQuery.toLowerCase()))
-          .map(m => m.id)
-      : [];
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>RAG Chat Export</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: 'Inter', sans-serif; background: #fff; color: #0d0d0d; padding: 40px; max-width: 800px; margin: 0 auto; }
+          h1 { font-size: 20px; font-weight: 600; color: #0f6e56; margin-bottom: 4px; }
+          .meta { font-size: 12px; color: #8e8ea0; margin-bottom: 32px; }
+          .message { display: flex; gap: 12px; margin-bottom: 24px; }
+          .message.user { flex-direction: row-reverse; }
+          .avatar {
+            width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 600;
+          }
+          .message.user .avatar { background: #0f6e56; color: #fff; }
+          .message.assistant .avatar { background: #f7f7f8; border: 1px solid #e5e5e5; color: #0f6e56; }
+          .bubble-wrap { display: flex; flex-direction: column; gap: 4px; max-width: 75%; }
+          .message.user .bubble-wrap { align-items: flex-end; }
+          .bubble { padding: 11px 16px; font-size: 14px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+          .message.user .bubble { background: #e1f5ee; border: 1px solid #9fe1cb; border-radius: 18px 4px 18px 18px; }
+          .message.assistant .bubble { background: #f7f7f8; border: 1px solid #e5e5e5; border-radius: 4px 18px 18px 18px; }
+          .time { font-size: 11px; color: #b0b0b0; padding: 0 4px; }
+          .sources { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e5e5; }
+          .sources-title { font-size: 11px; font-weight: 600; color: #0f6e56; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .source-item { font-size: 12px; color: #555; margin-bottom: 4px; line-height: 1.5; }
+          @media print {
+            body { padding: 20px; }
+            @page { margin: 20mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>RAG Chat</h1>
+        <div class="meta">Exported on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+        ${messagesHTML}
+        <script>window.onload = () => window.print();</script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
-    const jumpToMatch = (newIdx) => {
-      if (matchingIds.length === 0) return;
-      const clamped = Math.max(0, Math.min(newIdx, matchingIds.length - 1));
-      setMatchIndex(clamped);
-      const targetId = matchingIds[clamped];
-      if (messageRefs.current[targetId]) {
-        messageRefs.current[targetId].scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    };
+  const matchingIds = searchQuery.trim()
+    ? messages
+        .filter(m => (m.text ?? "").toLowerCase().includes(searchQuery.toLowerCase()))
+        .map(m => m.id)
+    : [];
+
+  const jumpToMatch = (newIdx) => {
+    if (matchingIds.length === 0) return;
+    const clamped = Math.max(0, Math.min(newIdx, matchingIds.length - 1));
+    setMatchIndex(clamped);
+    const targetId = matchingIds[clamped];
+    if (messageRefs.current[targetId]) {
+      messageRefs.current[targetId].scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
 
@@ -451,7 +501,6 @@ const handleFeedback = async (id, direction, reason = null) => {
             >
               Tour
             </button>
-            
 
             <div id="tour-status" style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px",
               color: online ? "#0f6e56" : "#dc2626" }}>
@@ -461,7 +510,8 @@ const handleFeedback = async (id, direction, reason = null) => {
             </div>
           </div>
         </header>
-          {searchOpen && (
+
+        {searchOpen && (
           <div style={{
             padding: "8px 24px", borderBottom: "1px solid #e5e5e5",
             background: "#fff", display: "flex", alignItems: "center", gap: "8px",
@@ -472,7 +522,6 @@ const handleFeedback = async (id, direction, reason = null) => {
               onChange={e => {
                 setSearchQuery(e.target.value);
                 setMatchIndex(0);
-                // auto-jump to first match
                 setTimeout(() => {
                   const first = messages.find(m => m.text?.toLowerCase().includes(e.target.value.toLowerCase()));
                   if (first && messageRefs.current[first.id]) {
@@ -527,6 +576,7 @@ const handleFeedback = async (id, direction, reason = null) => {
             >×</button>
           </div>
         )}
+
         <div style={{
           flex: 1, overflowY: "auto", padding: "28px 24px",
           display: "flex", flexDirection: "column", gap: "22px",

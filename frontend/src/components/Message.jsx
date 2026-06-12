@@ -50,7 +50,7 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask, search
 
   function handleThumbsDown() {
     if (msg.feedback === "down") {
-      onFeedback(msg.id, "down", null);
+      onFeedback(msg.dbId ?? msg.id, "down", null);
       return;
     }
     setShowFeedbackModal(true);
@@ -58,7 +58,7 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask, search
 
   function handleModalSubmit(reason) {
     setShowFeedbackModal(false);
-    onFeedback(msg.id, "down", reason);
+    onFeedback(msg.dbId ?? msg.id, "down", reason);
   }
 
   function highlightText(text, query) {
