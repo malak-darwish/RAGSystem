@@ -17,6 +17,11 @@ export default function App() {
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
   const { startTour } = useTour();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [matchIndex, setMatchIndex] = useState(0);
+  const messageRefs = useRef({});
+  const searchRef = useRef(null);
 
   useEffect(() => {
     fetch("http://localhost:8000/health")
@@ -27,6 +32,22 @@ export default function App() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+  const handler = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+      e.preventDefault();
+      setSearchOpen(v => !v);
+      setTimeout(() => searchRef.current?.focus(), 50);
+    }
+    if (e.key === "Escape") {
+      setSearchOpen(false);
+      setSearchQuery("");
+    }
+  };
+  window.addEventListener("keydown", handler);
+  return () => window.removeEventListener("keydown", handler);
+}, []);
 
   useEffect(() => {
     const seen = localStorage.getItem("tour-seen");
@@ -354,6 +375,21 @@ const handleFeedback = async (id, direction, reason = null) => {
   printWindow.document.close();
 };
 
+    const matchingIds = searchQuery.trim()
+      ? messages
+          .filter(m => (m.text ?? "").toLowerCase().includes(searchQuery.toLowerCase()))
+          .map(m => m.id)
+      : [];
+
+    const jumpToMatch = (newIdx) => {
+      if (matchingIds.length === 0) return;
+      const clamped = Math.max(0, Math.min(newIdx, matchingIds.length - 1));
+      setMatchIndex(clamped);
+      const targetId = matchingIds[clamped];
+      if (messageRefs.current[targetId]) {
+        messageRefs.current[targetId].scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
   return (
     <div style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
 
@@ -425,7 +461,72 @@ const handleFeedback = async (id, direction, reason = null) => {
             </div>
           </div>
         </header>
-
+          {searchOpen && (
+          <div style={{
+            padding: "8px 24px", borderBottom: "1px solid #e5e5e5",
+            background: "#fff", display: "flex", alignItems: "center", gap: "8px",
+          }}>
+            <input
+              ref={searchRef}
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setMatchIndex(0);
+                // auto-jump to first match
+                setTimeout(() => {
+                  const first = messages.find(m => m.text?.toLowerCase().includes(e.target.value.toLowerCase()));
+                  if (first && messageRefs.current[first.id]) {
+                    messageRefs.current[first.id].scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                }, 50);
+              }}
+              placeholder="Search messages…"
+              onKeyDown={e => {
+                if (e.key === "Enter") jumpToMatch(matchIndex + 1);
+                if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+              }}
+              style={{
+                flex: 1, maxWidth: "400px", padding: "6px 12px",
+                border: "1px solid #e5e5e5", borderRadius: "8px",
+                fontSize: "13px", outline: "none", fontFamily: "'Inter', sans-serif",
+              }}
+            />
+            {searchQuery && matchingIds.length > 0 && (
+              <span style={{ fontSize: "12px", color: "#8e8ea0", whiteSpace: "nowrap" }}>
+                {matchIndex + 1} / {matchingIds.length}
+              </span>
+            )}
+            {searchQuery && matchingIds.length === 0 && (
+              <span style={{ fontSize: "12px", color: "#e53e3e" }}>No matches</span>
+            )}
+            {searchQuery && matchingIds.length > 0 && (
+              <>
+                <button
+                  onClick={() => jumpToMatch(matchIndex - 1)}
+                  disabled={matchIndex === 0}
+                  style={{
+                    background: "none", border: "1px solid #e5e5e5", borderRadius: "6px",
+                    padding: "3px 8px", cursor: matchIndex === 0 ? "default" : "pointer",
+                    opacity: matchIndex === 0 ? 0.4 : 1, fontSize: "13px",
+                  }}
+                >↑</button>
+                <button
+                  onClick={() => jumpToMatch(matchIndex + 1)}
+                  disabled={matchIndex === matchingIds.length - 1}
+                  style={{
+                    background: "none", border: "1px solid #e5e5e5", borderRadius: "6px",
+                    padding: "3px 8px", cursor: matchIndex === matchingIds.length - 1 ? "default" : "pointer",
+                    opacity: matchIndex === matchingIds.length - 1 ? 0.4 : 1, fontSize: "13px",
+                  }}
+                >↓</button>
+              </>
+            )}
+            <button
+              onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#8e8ea0", fontSize: "18px", lineHeight: 1 }}
+            >×</button>
+          </div>
+        )}
         <div style={{
           flex: 1, overflowY: "auto", padding: "28px 24px",
           display: "flex", flexDirection: "column", gap: "22px",
@@ -445,6 +546,9 @@ const handleFeedback = async (id, direction, reason = null) => {
               onFeedback={handleFeedback}
               onRegenerate={handleRegenerate}
               onReask={handleReask}
+              searchQuery={searchQuery}
+              isCurrentMatch={matchingIds[matchIndex] === msg.id}
+              setRef={el => { if (el) messageRefs.current[msg.id] = el; }}
             />
           ))}
 
