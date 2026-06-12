@@ -5,7 +5,7 @@ import CitationsAccordion from "./CitationsAccordion";
 import FeedbackModal from "./FeedbackModal";
 import { parseCitations, extractCitedIndices } from "../utils/parseCitations";
 
-export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
+export default function Message({ msg, onFeedback, onRegenerate, onReask, searchQuery, isCurrentMatch, setRef }) {
   const isUser = msg.role === "user";
   const [hovered, setHovered] = useState(false);
   const [highlightedCitation, setHighlightedCitation] = useState(null);
@@ -14,7 +14,7 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
-  
+
   const versions = msg.versions || null;
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
     }
   }, [versions?.length]);
 
-  const displayedText    = versions?.[currentVersionIdx]?.content ?? msg.text;
+  const displayedText = versions?.[currentVersionIdx]?.content ?? msg.text;
   const displayedSources = versions?.[currentVersionIdx]?.sources ?? msg.sources;
 
   const handleVersionNav = (dir) => {
@@ -33,6 +33,7 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
     setCurrentVersionIdx(newIdx);
     setHighlightedCitation(null);
   };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(displayedText);
     setCopied(true);
@@ -42,14 +43,12 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
   const activeCitations = displayedSources?.length
     ? extractCitedIndices(displayedText)
     : [];
-  
-  // Thumbs up → immediate, thumbs down → open modal for reason
+
   function handleThumbsUp() {
     onFeedback(msg.id, "up", null);
   }
 
   function handleThumbsDown() {
-    // If already downvoted, toggle off
     if (msg.feedback === "down") {
       onFeedback(msg.id, "down", null);
       return;
@@ -61,6 +60,20 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
     setShowFeedbackModal(false);
     onFeedback(msg.id, "down", reason);
   }
+
+  function highlightText(text, query) {
+    if (!query?.trim()) return text;
+    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi"));
+    return parts.map((part, i) =>
+      part.toLowerCase() === query.toLowerCase()
+        ? <mark key={i} style={{ background: "#fef08a", borderRadius: "2px", padding: "0 1px" }}>{part}</mark>
+        : part
+    );
+  }
+
+  const isMatch = searchQuery?.trim()
+    ? [msg.text, displayedText].some(t => t?.toLowerCase().includes(searchQuery.toLowerCase()))
+    : false;
 
   function renderContent(text) {
     if (!text) return null;
@@ -146,7 +159,7 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
         />
       )}
 
-      <div style={{
+      <div ref={setRef} style={{
         display: "flex", gap: "12px",
         flexDirection: isUser ? "row-reverse" : "row",
         padding: "2px 0",
@@ -161,20 +174,23 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
         </div>
 
         <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}
-          >
-            <div style={{
-              background: isUser ? "#e1f5ee" : "#f7f7f8",
-              border: `1px solid ${isUser ? "#9fe1cb" : "#e5e5e5"}`,
-              borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
-              padding: "11px 16px",
-              fontSize: "15px", lineHeight: "1.65", color: "#0d0d0d",
-              transform: hovered ? "translateY(-1px)" : "translateY(0)",
-              transition: "transform 0.15s ease",
-            }}
-          >
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          style={{ display: "flex", flexDirection: "column", gap: "4px", maxWidth: "75%" }}
+        >
+          <div style={{
+            background: isUser ? "#e1f5ee" : "#f7f7f8",
+            border: isCurrentMatch && searchQuery
+              ? "2px solid #0f6e56"
+              : isMatch
+                ? "1px solid #fbbf24"
+                : `1px solid ${isUser ? "#9fe1cb" : "#e5e5e5"}`,
+            borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
+            padding: "11px 16px",
+            fontSize: "15px", lineHeight: "1.65", color: "#0d0d0d",
+            transform: hovered ? "translateY(-1px)" : "translateY(0)",
+            transition: "transform 0.15s ease",
+          }}>
             {msg.error ? (
               <span style={{ color: "#dc2626" }}>{msg.text}</span>
             ) : isUser ? (
@@ -192,8 +208,7 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
                       width: "100%", background: "#fff", border: "1px solid #9fe1cb",
                       borderRadius: "8px", padding: "8px", fontSize: "14px",
                       lineHeight: "1.5", fontFamily: "'Inter', sans-serif",
-                      outline: "none", resize: "none", minHeight: "60px",
-                      color: "#0d0d0d",
+                      outline: "none", resize: "none", minHeight: "60px", color: "#0d0d0d",
                     }}
                   />
                   <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
@@ -214,10 +229,9 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
                   </div>
                 </div>
               ) : (
-                <span>{msg.text}</span>
+                <span>{searchQuery ? highlightText(msg.text, searchQuery) : msg.text}</span>
               )
             ) : (
-              
               <div className="markdown" style={{ lineHeight: "1.65" }}>
                 {msg.regenerating
                   ? <span style={{ color: "#8e8ea0", fontStyle: "italic" }}>Regenerating…</span>
@@ -245,26 +259,26 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
               {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
-            {isUser && !msg.error && hovered && !editing && (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "2px" }}>
-                <button
-                  onClick={() => { setEditValue(msg.text); setEditing(true); }}
-                  title="Edit & resend"
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: "28px", height: "28px", borderRadius: "7px",
-                    background: "transparent", border: "1px solid #e5e5e5",
-                    cursor: "pointer",
-                  }}
-                >
-                  <Pencil size={13} color="#8e8ea0" />
-                </button>
-              </div>
-            )}
+
+          {isUser && !msg.error && hovered && !editing && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "2px" }}>
+              <button
+                onClick={() => { setEditValue(msg.text); setEditing(true); }}
+                title="Edit & resend"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: "28px", height: "28px", borderRadius: "7px",
+                  background: "transparent", border: "1px solid #e5e5e5",
+                  cursor: "pointer",
+                }}
+              >
+                <Pencil size={13} color="#8e8ea0" />
+              </button>
+            </div>
+          )}
+
           {!isUser && !msg.error && (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
-
-              {/* Thumbs up — immediate */}
               <button
                 onClick={handleThumbsUp}
                 style={{
@@ -277,8 +291,6 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
               >
                 <ThumbsUp size={13} color={msg.feedback === "up" ? "#0f6e56" : "#8e8ea0"} />
               </button>
-
-              {/* Thumbs down — opens modal */}
               <button
                 onClick={handleThumbsDown}
                 style={{
@@ -291,8 +303,6 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
               >
                 <ThumbsDown size={13} color={msg.feedback === "down" ? "#dc2626" : "#8e8ea0"} />
               </button>
-
-              {/* Regenerate */}
               <button
                 onClick={() => onRegenerate(msg.id)}
                 disabled={msg.regenerating}
@@ -307,20 +317,23 @@ export default function Message({ msg, onFeedback, onRegenerate, onReask }) {
                 }}
               >
                 <RefreshCw
-                  size={13}
-                  color="#8e8ea0"
+                  size={13} color="#8e8ea0"
                   style={msg.regenerating ? { animation: "spin 1s linear infinite" } : {}}
                 />
               </button>
               <button
                 onClick={handleCopy}
                 title="Copy message"
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: "28px", height: "28px", borderRadius: "7px",
+                  background: "transparent", border: "1px solid #e5e5e5",
+                  cursor: "pointer",
+                }}
               >
-                {copied ? <Check size={14} className="text-teal-600" /> : <Copy size={14} />}
+                {copied ? <Check size={14} color="#0f6e56" /> : <Copy size={14} color="#8e8ea0" />}
               </button>
 
-              {/* Version switcher */}
               {versions && versions.length > 1 && (
                 <div style={{ display: "flex", alignItems: "center", gap: "2px", marginLeft: "4px" }}>
                   <button
