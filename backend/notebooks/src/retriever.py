@@ -75,6 +75,7 @@ def build_prompt(query: str, numbered_chunks: list[dict]) -> str:
         f"- Use bullet points if the answer has multiple distinct points.\n"
         f"- Do NOT start with 'Based on the context' or 'According to the document'.\n"
         f"- If the context doesn't contain enough information, say so briefly.\n\n"
+        f"- If the user sends a greeting or pleasantry (e.g. 'hi', 'hello', 'thank you', 'okay'), respond naturally and conversationally without referencing the context or citing sources."
         f"Answer:"
     )
 
